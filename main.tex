@@ -1,0 +1,146 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath}
+
+\title{The Sparse Roofline Benchmark Specification}
+\author{Editors: Willow Ahrens, (Please add your name!)}
+\date{June 2023}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\section{Tensor Formats}
+
+To enable cross-language compaitibility, all tensors generators or dataset downloads will produce tensor files in either the TTX (text-based) or Binsparse HDF5 (binary) tensor formats. The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.ttx} and \texttt{spmv/RMAT/x.ttx}
+
+\section{Timing}
+
+Each benchmark is separated into stages based on what information the application is allowed to read at each stage. For example, to enable a clear distinction between matrix preprocessing and runtime in SpMV kernels, the first stage allows access to just the matrix. Any vector-agnostic preprocessing can be timed with the first stage. The second stage allows access to the vector, and thus computation of the output. We recognize that many divisions between stages are possible; we have selected separations into stages that we believe are meaningful for applications.
+
+Applications may choose to report either the minimum or the geometric mean of a predefined number of exections, and should also report whether the cache was cleared at the start of each exectution.
+
+\section{Kernels}
+
+\subsection{SpMV}
+	\subsubsection{Input (Stage 1)}:
+		Matrix given (e.g. “Boeing/ct20stif” or power-law graph laplacian)
+		We also need to give the format of the matrix, but we can just specify directly how the format arrays correspond to input tensor parameters.
+
+		Let’s pick CSR or COO for spmv
+
+	Input (Stage 2):
+		Vector
+	Compute:
+		$y_j = A_ij * x_j$
+	Timing Categories:
+Staged: Report stage 1, and 2 times separately
+Fused: Report only aggregate time
+Weighted: Report stage 1 + stage 2 * 100, to reflect prioritization of inspector vs. executor.
+
+
+Jacobi(?) PCG(?) (w/Jacobi preconditioner) Solve:
+	Input (Stage 1):
+		Matrix given (e.g. “Boeing/ct20stif” or power-law graph laplacian)
+	Input (Stage 2):
+		Vector (e.g. uniform random dense vector)
+	Compute:
+		$y_j = A_ij * x_j$
+	Timings:
+Report time start stage 1 to start stage 2
+Report time start stage 2 to end
+Report aggregate time
+Some combination of:
+1. Allow reorganization of algorithm up to equivalence under arbitrary semirings (treat unsupported functions as uninterpreted) (e.g. thou shalt not do Strassen)
+2. Allow reorganization of algorithm up to equivalence under infinite precision
+2.5 (2 and 3)
+3. Anything you want up to declared empirical accuracy
+If algorithm is iterative, run steps until tolerance
+If algorithm is non-iterative, report achieved empirical accuracy compared to double.
+
+SpMM:
+	Input (Stage 1):
+		Matrix
+	Input (Stage 2):
+		Vector
+	Compute:
+		$y_ij = A_ik * x_kj$
+	Timings:
+Report time start stage 1 to start stage 2
+Report time start stage 2 to end
+Report aggregate time
+SpGEMM from multi-source BFS:
+	Computation: Compute BFS parents starting from a particular set of vertices.
+	Distribution: If the graph is fixed, you can precompute the BFS parents (not interesting). Thus, this problem is only well-posed on graph generators. I’m not sure if the set of vertices matters, could pick randomly.
+SpGEMM from setup phase of algebraic multigrid:
+	Computation: Compute $R_lA_lP_L$ as described in \url{https://doi.org/10.1145/3571157}.
+	Distribution: matrices described in \url{https://doi.org/10.1145/3571157}
+SpGEMM with various levels of size prediction difficulty and output reuse:
+	Computation: Compute C = A*B
+	Distribution: Generate A and B (using RMAT, perhaps?) so that expected number of nonzeros in A and B remain fixed but expected number of nonzeros in C can be very high, very low, or highly variable
+MTTKRP:
+	Computation: A single MTTKRP 
+	Distribution: The dense matrices are random, but the tensor can be fixed or random.
+Candecomp:
+	Computation: Some fixed number of MTTKRPs of the same tensor in alternating transposition orders on the same factor matrices
+	Distribution: The tensor can be fixed or random here as well.
+Stencil (Same as SpMV, but matrix is a stencil)
+	Computation: SpMV or Congugate gradient
+	Distribution: Matrix is a toeplitz matrix for a particular stencil, vector is random
+FFT:
+	Computation: SpMV
+	Distribution: Matrix is an FFT matrix, vector is random
+Dynamic PageRank:
+	Computation: Compute Pagerank of a matrix
+	Stage 1.
+		The first (n - d) rows and columns of a matrix are given
+	Stage 2.
+		The final d rows and columns are given
+	Computation:
+		Do 20 iterations of pagerank
+	Notes: This incentivizes the implementation to use the first portion of the matrix to accelerate the computation in stage 2.
+(Gilbert: This is just a power iteration? Willow: It is. I was trying to emphasize the dynamic graph kernel problem, where updates to a graph are received in real time and we are trying to maintain some statistics on the graph as the updates come in.)
+Quantum Circuits:
+	Computation: Compute the distribution of the quantum circuits outputs
+	Distribution: 1 Tensor for each circuit element (10s-100s total)
+Transformer Model:
+	Computation: Compute the output of a single encoder block in a transformer model with k attention heads
+	Distribution: Randomly initialized weights with some sparsification algorithm applied
+ 
+ \begin{align*}
+Q[S, E, K] &= \sum_C(I[S, C] * WQ[C, E, K])\\
+K[S, E, K] &= \sum_C(I[S, C] * WK[C, E, K])\\
+V[S, E, K] &= \sum_C(I[S, C] * WV[C, E, K])\\
+AP[S, S’, K] &= \sum_E(Q[S, E, K] * K[S’, E, K]) / 8\\
+Z[S, E, K] &= \sum_S’(Sigmoid(AP[S,S’,K]) * V[S’, E, K])\\
+CZ[S, E] &= \sum_k(Z[S, E, K] * WZ[K,E])\\
+FF[S,FF] &= Relu(CZ[S,E] * WFF1[E,FF])\\
+O[S,E] &= Relu(FF[S,FF] * WFF2[FF,E])\\
+\end{align*}
+
+CountSat:
+	Computation: Compute the number of satisfying solutions for a sat problem. This is a tensor contraction along each variable of the product of all clause tensors according to matching variables.
+	Distribution: Randomly generated sat clauses with variables of length 3-10 (Existing Sat datasets? Are random sat problems unsatisfiable w.h.p.?)
+
+Graph Neural Networks:
+	Computation: Compute one iteration of message passing
+	Distribution: Random graph models, random sparsified weights
+
+# WX, BX is a simple affine transform, but it could be NN layers instead
+$NeighborMessages[u, v, k’] = A[u, v]*(Sum_k(X[v, k]*WX[k, k’]) +BX[k’])  $
+
+$AggNeighborMessages[u, k’] = Sum_v(NeighborMessage[u, v, k’])$
+
+# This could also be a neural network
+$NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]) $
+
+SubGraph Counting:
+	Computation: Compute the number of subgraphs of a particular kind (triangle, flower, petal, etc.)
+	Distribution: Random graph models, directed vs undirected subvariants
+
+
+
+
+\end{document}
