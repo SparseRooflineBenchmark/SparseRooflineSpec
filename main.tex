@@ -3,7 +3,7 @@
 \usepackage{amsmath}
 
 \title{The Sparse Roofline Benchmark Specification}
-\author{Editors: Willow Ahrens, (Please add your name!)}
+\author{Editors: Willow Ahrens, Olivia Hsu, (Please add your name!)}
 \date{June 2023}
 
 \begin{document}
@@ -22,26 +22,86 @@ Each benchmark is separated into stages based on what information the applicatio
 
 Applications may choose to report either the minimum or the geometric mean of a predefined number of exections, and should also report whether the cache was cleared at the start of each exectution.
 
+\section{Correctness and Validation}
+
+\subsection{Exception Handling}
+\begin{itemize}
+\item NaN * Explicit zero = NaN
+
+\item NaN * implicit zero = implicit zero
+\end{itemize}
+
+\subsection{Comparison to Reference Implementation}
+\begin{enumerate}
+    \item Allow reorganization of algorithm up to equivalence under arbitrary semirings (treat unsupported functions as uninterpreted) (e.g. thou shalt not do Strassen)
+    \item Allow reorganization of algorithm up to equivalence under infinite precision
+    \item Some combination of the above
+    \item Anything you want up to declared empirical accuracy
+\end{enumerate}
+
+If algorithm is iterative, run steps until tolerance
+If algorithm is non-iterative, report achieved empirical accuracy compared to double.
+
+\section{In Memory Formats}
+
+
+\section{Datasets}
+
+What makes a choice of dataset a good choice?
+\begin{itemize}
+    \item There is a citation we can make
+    \item There is a clear story/good argument connecting this data and its use (on a given kernel) to an application that people care about.
+    \item The dataset is taken from another already existing benchmark
+    \item The dataset exercises a particular extremal complexity case (e.g. expander graphs, or things coming from the lower bounds group)
+    \item That the dataset should be representative of a real application of a  kernel (i.e. make sense together)
+\end{itemize}
+
+What are special kinds of structure that we want to capture in the metadata?
+\begin{itemize}
+    \item Symmetry (note kernels also have symmetry sometimes!)
+\end{itemize}
+
+
+Edgar's paper about symmetric spmv
+Symmetric kernels (v2.0) vs symmetric data (v1.0)
+
+In the future, perhaps we can add some stats about all the matrices.
+
 \section{Kernels}
 
 \subsection{SpMV}
-	\subsubsection{Input (Stage 1)}:
+
+\subsubsection{Input}
+\begin{itemize}
+\item \textbf{(Stage 1)}
 		Matrix given (e.g. “Boeing/ct20stif” or power-law graph laplacian)
 		We also need to give the format of the matrix, but we can just specify directly how the format arrays correspond to input tensor parameters.
 
 		Let’s pick CSR or COO for spmv
+\item \textbf{(Stage 2)}:
+		(Dense) Vector is supplied
+\end{itemize}
+\subsubsection{Computation}
+$$y_j = A_ij * x_j$$
+\subsubsection{Timing Categories}
 
-	Input (Stage 2):
-		Vector
-	Compute:
-		$y_j = A_ij * x_j$
 	Timing Categories:
 Staged: Report stage 1, and 2 times separately
 Fused: Report only aggregate time
 Weighted: Report stage 1 + stage 2 * 100, to reflect prioritization of inspector vs. executor.
+\subsubsection{Variations}
+    Also include SpMV transpose.
+
+    Mention $A=A^T$, possible additional optimizations,
+    including``Fast Bilinear Algorithms for Symmetric Tensor 
+    Contractions'', E. Solomonik, J. Demmel, Computational Methods
+    in Applied Mathematics, Feb 2020.
+    \newline
+    https://doi.org/10.1515/cmam-2019-0075
 
 
-Jacobi(?) PCG(?) (w/Jacobi preconditioner) Solve:
+
+\subsection{Iterative (Jacobi? PCG?) Solve}
 	Input (Stage 1):
 		Matrix given (e.g. “Boeing/ct20stif” or power-law graph laplacian)
 	Input (Stage 2):
@@ -60,7 +120,7 @@ Some combination of:
 If algorithm is iterative, run steps until tolerance
 If algorithm is non-iterative, report achieved empirical accuracy compared to double.
 
-SpMM:
+\subsection{SpMM}
 	Input (Stage 1):
 		Matrix
 	Input (Stage 2):
@@ -71,28 +131,37 @@ SpMM:
 Report time start stage 1 to start stage 2
 Report time start stage 2 to end
 Report aggregate time
+
 SpGEMM from multi-source BFS:
 	Computation: Compute BFS parents starting from a particular set of vertices.
 	Distribution: If the graph is fixed, you can precompute the BFS parents (not interesting). Thus, this problem is only well-posed on graph generators. I’m not sure if the set of vertices matters, could pick randomly.
+
 SpGEMM from setup phase of algebraic multigrid:
 	Computation: Compute $R_lA_lP_L$ as described in \url{https://doi.org/10.1145/3571157}.
 	Distribution: matrices described in \url{https://doi.org/10.1145/3571157}
 SpGEMM with various levels of size prediction difficulty and output reuse:
 	Computation: Compute C = A*B
 	Distribution: Generate A and B (using RMAT, perhaps?) so that expected number of nonzeros in A and B remain fixed but expected number of nonzeros in C can be very high, very low, or highly variable
-MTTKRP:
+
+\subsection{ATA}
+
+\subsection{MTTKRP}
 	Computation: A single MTTKRP 
 	Distribution: The dense matrices are random, but the tensor can be fixed or random.
-Candecomp:
+
+
+\subsection{Candecomp}
 	Computation: Some fixed number of MTTKRPs of the same tensor in alternating transposition orders on the same factor matrices
 	Distribution: The tensor can be fixed or random here as well.
 Stencil (Same as SpMV, but matrix is a stencil)
 	Computation: SpMV or Congugate gradient
 	Distribution: Matrix is a toeplitz matrix for a particular stencil, vector is random
-FFT:
+
+\subsection{FFT}
 	Computation: SpMV
 	Distribution: Matrix is an FFT matrix, vector is random
-Dynamic PageRank:
+
+\subsection{Dynamic PageRank}
 	Computation: Compute Pagerank of a matrix
 	Stage 1.
 		The first (n - d) rows and columns of a matrix are given
@@ -101,8 +170,9 @@ Dynamic PageRank:
 	Computation:
 		Do 20 iterations of pagerank
 	Notes: This incentivizes the implementation to use the first portion of the matrix to accelerate the computation in stage 2.
-(Gilbert: This is just a power iteration? Willow: It is. I was trying to emphasize the dynamic graph kernel problem, where updates to a graph are received in real time and we are trying to maintain some statistics on the graph as the updates come in.)
-Quantum Circuits:
+(Gilbert: This is just a power iteration? Willow: It is. I was trying to emphasize the dynamic graph kernel problem, where updates to a graph are received in real time and we are trying to maintain some statistics on the graph as the updates come in. Gilbert: I'm not sure page-rank or similar are incrementalized in practice?  Maybe.  Maybe worth considering social network clustering algorithms here instead?)
+
+\subsection{Quantum Circuits}
 	Computation: Compute the distribution of the quantum circuits outputs
 	Distribution: 1 Tensor for each circuit element (10s-100s total)
 Transformer Model:
@@ -120,11 +190,11 @@ FF[S,FF] &= Relu(CZ[S,E] * WFF1[E,FF])\\
 O[S,E] &= Relu(FF[S,FF] * WFF2[FF,E])\\
 \end{align*}
 
-CountSat:
+\subsection{CountSat}
 	Computation: Compute the number of satisfying solutions for a sat problem. This is a tensor contraction along each variable of the product of all clause tensors according to matching variables.
 	Distribution: Randomly generated sat clauses with variables of length 3-10 (Existing Sat datasets? Are random sat problems unsatisfiable w.h.p.?)
 
-Graph Neural Networks:
+\subsection{Graph Neural Networks}
 	Computation: Compute one iteration of message passing
 	Distribution: Random graph models, random sparsified weights
 
@@ -136,15 +206,17 @@ $AggNeighborMessages[u, k’] = Sum_v(NeighborMessage[u, v, k’])$
 # This could also be a neural network
 $NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]) $
 
-SubGraph Counting:
+\subsection{SubGraph Counting}
 	Computation: Compute the number of subgraphs of a particular kind (triangle, flower, petal, etc.)
 	Distribution: Random graph models, directed vs undirected subvariants
 
+\section{Future Benchmark Verticals}
+
+\subsection{Quantum Chemistry Stuff}
+Oh cool, quantum chemistry stuff!
 
 %Here is the bibliography:
 \bibliographystyle{plain}
 \bibliography{main}
-
-
 
 \end{document}
