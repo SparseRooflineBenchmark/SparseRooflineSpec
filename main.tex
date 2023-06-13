@@ -47,8 +47,6 @@ If algorithm is non-iterative, report achieved empirical accuracy compared to do
 
 \section{Datasets}
 
-
-
 What makes a choice of dataset a good choice?
 \begin{itemize}
     \item There is a citation we can make
@@ -58,18 +56,15 @@ What makes a choice of dataset a good choice?
     \item That the dataset should be representative of a real application of a  kernel (i.e. make sense together)
 \end{itemize}
 
-What are special kinds of structure that we want to capture in the metadata?
-\begin{itemize}
-    \item Symmetry (note kernels also have symmetry sometimes!)
-\end{itemize}
+\subsection{Matrix Generators}
 
+    Matrix generators are listed here, together with a description of their parameters.
 
-Edgar's paper about symmetric spmv
-Symmetric kernels (v2.0) vs symmetric data (v1.0)
+\subsubsection{RMAT}
+    The RMAT matrix generator \cite{chakrabarti_r-mat_2004} creates graphs with power-law degree distributions, which presents an interesting challenge to load balancing for parallelization. The generator works by taking the kronecker product of a seed matrix with itself several times to produce a matrix of probabilities of including nonzeros. An artifact of RMAT matrix generation is that heavy rows are often grouped together (a "staircase" pattern), so we choose to apply a random row/column permutation to the rows and columns. RMAT is used in the Graph500 and GAP benchmarks \cite{noauthor_graph_nodate, beamer_gap_2017}. Additionally, the tensor generalization (which takes Kronecker products of a tensor seed with itself) is used in the PASTA Benchmark Suite \cite{li_pasta_2019}.
 
-In the future, perhaps we can add some stats about all the matrices.
+    The RMAT matrix generator classically uses a seed matrix
 
-Matrix Generators
 
 \section{Kernels}
 
