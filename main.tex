@@ -76,13 +76,13 @@ What makes a choice of dataset a good choice?
 
     Tensor generators are listed here, together with a description of their
     parameters. All tensor generators that use random numbers additionally take a
-	seed argument $s$.
+	seed argument $s$. 
 
 \subsubsection{RMAT}
     The RMAT matrix generator \cite{chakrabarti_r-mat_2004} creates graphs with
     power-law degree distributions, which presents an interesting challenge to
     load balancing for parallelization. The generator works by taking the
-    kronecker product of a seed matrix with itself several times to produce a
+    Kronecker product of a seed matrix with itself several times to produce a
     matrix of probabilities of including nonzeros. An artifact of RMAT matrix
     generation is that heavy rows are often grouped together (a "staircase"
     pattern), so we choose to apply a random row/column permutation to the rows
@@ -186,7 +186,11 @@ Some combination of:
 If algorithm is iterative, run steps until tolerance
 If algorithm is non-iterative, report achieved empirical accuracy compared to double.
 
-\subsection{SpMM}
+\subsection{SpMSpV}
+``Sparse-Sparse Matrix-Vector Multiply'' i.e. the matrices and vectors are all sparse.
+$$y_i += A_{i,j} * x_j$$
+
+\subsection{SpMM (SpGEMM?)}
 	Input (Stage 1):
 		Matrix
 	Input (Stage 2):
@@ -280,6 +284,62 @@ $NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]
 
 \subsection{Quantum Chemistry Stuff}
 Oh cool, quantum chemistry stuff!
+
+\subsection{Morgue from Earlier Notes}
+
+Produce a List of all Computation Kernels (Acronyms & Definitions)
+SpMV? SpMM? SpDM3? SpMSpV? SPGEMM? SpLU? SpTRSV/M?
+
+SpMV:
+	“Sparse Matrix-Vector Multiply”
+Dense x,y, Sparse A
+y[i] += A[i, j] * x[j]
+SpMSpV:
+	“Sparse-Sparse Matrix-Vector Multiply”
+Sparse A, x, y
+y[i] += A[i, j] * x[j]
+SpGEMM:
+	“Sparse-Sparse Matrix Multiply”
+Sparse C, A, B, often all matrices are square
+C[i, j] += A[i, k] * B[k, j]
+Masked SpGEMM:
+	Sparse (sometimes Boolean) S, C, Sparse A, B
+C[i, j] += S[i, j] * A[i, k] * B[k, j]
+SDDMM:
+	“Sampled Dense Dense Matrix Multiply”
+	Sparse (sometimes Boolean) S, C, Dense A, B
+C[i, j] += S[i, j] * A[i, k] * B[k, j]
+
+SpMM:
+	“Sparse Matrix Multiply”
+Dense C, B, Sparse A, often J small constant
+C[i, j] += A[i, k] * B[k, j]
+
+MTTKRP:
+	“Matricized Tensor Times Khatri-Rao Product”
+Sparse B, Dense A, C, D
+A[i, j] += B[i, k, l] * C[k, j] * D[l, j]
+SpTTM:
+	“Sparse Tensor Times Matrix”
+Sparse A, B, Dense C, usually K >> L or L >> K
+A[i, j, k] += B[i, j, l] * C[k, l]
+SpMTTKRP:
+Sparse A, B, C, D
+A[i, j] += B[i, k, l] * C[k, j] * D[l, j]
+SpLU:
+	“Sparse LU Factorization”
+Sparse A, produce permutations P, Q, sparse lower triangular L, and sparse upper triangular U
+such that PAQ=LU
+SpTRSV:
+	“Sparse Triangular Solve”
+	Sparse triangular matrix A, dense vector y, produce dense vector x such that Ax = y
+SpTRSM:
+	Sparse triangular matrix A, dense matrix Y, produce dense matrix X such that AX = Y
+
+Willow: I’ve taken a stab at listing some kernel definitions. One might group them broadly by:
+	1 argument sparse: SpMV, SpMM, SDDMM,MTTKRP, SpTTM
+	2+ argument sparse: SpGEMM, SpMSpV, SpMTTKRP
+	Loop carry dependency: SpLU, SpTRSV, SpTRSM
 
 %Here is the bibliography:
 \bibliographystyle{plain}
