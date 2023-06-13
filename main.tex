@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage{graphicx} % Required for inserting images
 \usepackage{amsmath}
+\usepackage{hyperref}
 
 \title{The Sparse Roofline Benchmark Specification}
 \author{Editors: Willow Ahrens, Olivia Hsu, (Please add your name!)}
@@ -203,12 +204,12 @@ O[S,E] &= Relu(FF[S,FF] * WFF2[FF,E])\\
 	Computation: Compute one iteration of message passing
 	Distribution: Random graph models, random sparsified weights
 
-# WX, BX is a simple affine transform, but it could be NN layers instead
+% WX, BX is a simple affine transform, but it could be NN layers instead
 $NeighborMessages[u, v, k’] = A[u, v]*(Sum_k(X[v, k]*WX[k, k’]) +BX[k’])  $
 
 $AggNeighborMessages[u, k’] = Sum_v(NeighborMessage[u, v, k’])$
 
-# This could also be a neural network
+% This could also be a neural network
 $NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]) $
 
 \subsection{SubGraph Counting}
