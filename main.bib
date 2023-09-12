@@ -52,7 +52,7 @@
 	author = {Li, Jiajia and Lakshminarasimhan, Mahesh and Wu, Xiaolong and Li, Ang and Olschanowsky, Catherine and Barker, Kevin},
 	month = oct,
 	year = {2020},
-	keywords = {Benchmark testing, benchmarking, data analysis, GPU, Kernel, Machine learning, Optimization, Social networking (online), Sparse matrices, sparse tensors, tensor decomposition, Tensors},
+	keywords = {GPU, Tensors, Sparse matrices, Optimization, Machine learning, Kernel, Benchmark testing, sparse tensors, data analysis, tensor decomposition, benchmarking, Social networking (online)},
 	pages = {193--204},
 	file = {IEEE Xplore Abstract Record:/Users/willow/Zotero/storage/LFAKBC6M/9251240.html:text/html;IEEE Xplore Full Text PDF:/Users/willow/Zotero/storage/PCCDP2CM/Li et al. - 2020 - A Sparse Tensor Benchmark Suite for CPUs and GPUs.pdf:application/pdf},
 }
@@ -189,6 +189,20 @@
 	year = {2017},
 }
 
+@inproceedings{vuduc_performance_2002,
+	title = {Performance {Optimizations} and {Bounds} for {Sparse} {Matrix}-{Vector} {Multiply}},
+	doi = {10.1109/SC.2002.10025},
+	abstract = {We consider performance tuning, by code and data structure reorganization, of sparse matrix-vector multiply (SpM×V), one of the most important computational kernels in scientific applications. This paper addresses the fundamental questions of what limits exist on such performance tuning, and how closely tuned code approaches these limits. Specifically, we develop upper and lower bounds on the performance (Mflop/s) of SpM×V when tuned using our previously proposed register blocking optimization. These bounds are based on the non-zero pattern in the matrix and the cost of basic memory operations, such as cache hits and misses. We evaluate our tuned implementations with respect to these bounds using hardware counter data on 4 different platforms and on test set of 44 sparse matrices. We find that we can often get within 20\% of the upper bound, particularly on class of matrices from finite element modeling (FEM) problems; on non-FEM matrices, performance improvements of 2× are still possible. Lastly, we present new heuristic that selects optimal or near-optimal register block sizes (the key tuning parameters) more accurately than our previous heuristic. Using the new heuristic, we show improvements in SpM×V performance (Mflop/s) by as much as 2.5× over an untuned implementation. Collectively, our results suggest that future performance improvements, beyond those that we have already demonstrated for SpM×V, will come from two sources: (1) consideration of higher-level matrix structures (e.g. exploiting symmetry, matrix reordering, multiple register block sizes), and (2) optimizing kernels with more opportunity for data reuse (e.g. sparse matrix-multiple vector multiply, multiplication of AT A by a vector).},
+	booktitle = {{SC} '02: {Proceedings} of the 2002 {ACM}/{IEEE} {Conference} on {Supercomputing}},
+	author = {Vuduc, R. and Demmel, J.W. and Yelick, K.A. and Kamil, S. and Nishtala, R. and Lee, B.},
+	month = nov,
+	year = {2002},
+	note = {ISSN: 1063-9535},
+	keywords = {Data structures, Hardware, Sparse matrices, Testing, Optimization, Upper bound, Kernel, Costs, Registers, Counting circuits},
+	pages = {26--26},
+	file = {IEEE Xplore Abstract Record:/Users/willow/Zotero/storage/NB49QD9N/1592862.html:text/html;IEEE Xplore Full Text PDF:/Users/willow/Zotero/storage/BLUY9Q7P/Vuduc et al. - 2002 - Performance Optimizations and Bounds for Sparse Ma.pdf:application/pdf;Vuduc et al. - 2002 - Performance Optimizations and Bounds for Sparse Ma.pdf:/Users/willow/Zotero/storage/EIBMBAFB/Vuduc et al. - 2002 - Performance Optimizations and Bounds for Sparse Ma.pdf:application/pdf},
+}
+
 @misc{beamer_gap_2017,
 	title = {The {GAP} {Benchmark} {Suite}},
 	url = {http://arxiv.org/abs/1508.03619},
@@ -225,7 +239,14 @@
 	author = {Stathis, Pyrrhos and Vassiliadis, Stamatis and Cotofana, Sorin},
 	editor = {Malyshkin, Victor E.},
 	year = {2003},
-	keywords = {Benchmark Algorithm, Benchmark Suite, Sparse Matrice, Sparse Matrix, Sparsity Pattern},
+	keywords = {Sparse Matrix, Sparse Matrice, Benchmark Algorithm, Benchmark Suite, Sparsity Pattern},
 	pages = {549--554},
 	file = {Full Text PDF:/Users/willow/Zotero/storage/M9XJWEWU/Stathis et al. - 2003 - D-SAB A Sparse Matrix Benchmark Suite.pdf:application/pdf},
+}
+
+@misc{noauthor_graphblasbinsparse-specification_nodate,
+	title = {{GraphBLAS}/binsparse-specification: {A} cross-platform binary storage format for sparse data, particularly sparse matrices.},
+	url = {https://github.com/GraphBLAS/binsparse-specification},
+	urldate = {2023-09-12},
+	file = {GraphBLAS/binsparse-specification\: A cross-platform binary storage format for sparse data, particularly sparse matrices.:/Users/willow/Zotero/storage/LSHSHLUL/binsparse-specification.html:text/html},
 }
