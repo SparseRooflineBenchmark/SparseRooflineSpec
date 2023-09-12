@@ -3,6 +3,14 @@
 \usepackage{amsmath}
 \usepackage{hyperref}
 
+\usepackage[many]{tcolorbox}
+\newcommand {\grace}[1]{{\color{violet}\sf{[Grace: #1]}}}
+\newcommand {\willow}[1]{{\color{green}\sf{[Willow: #1]}}}
+\newcommand {\olivia}[1]{{\color{red}\sf{[Olivia: #1]}}}
+\newcommand {\dan}[1]{{\color{orange}\sf{[Dan: #1]}}}
+\newcommand {\glb}[1]{{\color{blue}\sf{[Gilbert: #1]}}}
+\newcommand {\jim}[1]{{\color{purple}\sf{[Jim: #1]}}}
+
 \title{The Sparse Roofline Benchmark Specification}
 \author{Editors: Willow Ahrens, Olivia Hsu, (Please add your name!)}
 \date{June 2023}
@@ -13,15 +21,49 @@
 
 \section{Introduction}
 
+We will discuss the introduction at a later meeting after previous comments have been incorporated into a draft.
+
+%Sparse matrix and tensor problems have received increased attention in recent years. We have developed this benchmark suite to encourage meaningful comparison among the varieties of solutions.
+%Direct comparisons in sparse computing research are difficult due to the wide variety of sparse kernels, input-dependent performance, differences in intended use cases for each kernel, and a lack of realistic or theoretically interesting datasets.
+
+%Prior benchmark suites have encouraged competition to improve the performance of various subsets or combinations of sparse kernels. SparseBench was proposed by the Netlib to measure numerical improvements to sparse iterative kernels that appear in scientific computing applications. The GAP (Graph Algorithm
+%Platform) benchmark suite describes entire graph applications composed of multiple sparse kernels. PASTA (A Parallel Sparse Tensor Algorithm Benchmark Suite) was proposed to measure sparse tensor kernels, but only concerns kernels with a single sparse tensor. 
+
+%Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
+
+%First, we specify datasets or generators for all of the inputs to a given kernel, including situations where multiple inputs are sparse and their patterns interact. As an example, this situation arises in sparse matrix times sparse matrix multiply, where the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
+
+%Second, we specify explicit staging of sparse kernels to quantify the tradeoff between preprocessing time and runtime. Many optimizations to SpMV, for example, involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
+
+%Third, we provide sparse tensor statistics for each problem (such as the sparsity of the output or the number of required operations), and generators for pathological cases. This helps quantify when implementations are reaching their theoretical limit, the roofline.
+
+%Our benchmark suite aims to provide researchers with the software and specifications to easily benchmark sparse problems on realistic datasets across multiple languages and architectures. We also provide an easily accessible database to tabulate the results: the best known approaches to sparse problems.
+
+%Note: There is more potential text for the introduction at the end of the document
+
+\section{Reference Implementation}
+
+While the precise mathematical specification of the computation is specified in this document, we have also provided a reference implementation for each problem.
+%We will produce a framework for running our benchmarks on various target hardwares, providing data for various backends. The framework will have places to plug in a candidate implementation, and the script will output the runtimes for appropriate systems.
+
 \section{Tensor Formats}
 
-To enable cross-language compaitibility, all tensors generators or dataset downloads will produce tensor files in either the TTX (text-based) or Binsparse HDF5 (binary) tensor formats. The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.ttx} and \texttt{spmv/RMAT/x.ttx}
+To enable cross-language compatibility, all tensors generators or dataset downloads will produce tensor files in Binsparse tensor formats. The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.ttx} and \texttt{spmv/RMAT/x.ttx}
+
+\glb{make sure to precisely specify what "dense" format means here.}
 
 \section{Timing}
 
-Each benchmark is separated into stages based on what information the application is allowed to read at each stage. For example, to enable a clear distinction between matrix preprocessing and runtime in SpMV kernels, the first stage allows access to just the matrix. Any vector-agnostic preprocessing can be timed with the first stage. The second stage allows access to the vector, and thus computation of the output. We recognize that many divisions between stages are possible; we have selected separations into stages that we believe are meaningful for applications.
+The time to transfer input/output data to and from disk should not be measured.  Timing should begin with inputs resident in memory with the specified binary format.  (see Format Section)  The timing should end after the output is resident in memory with the specified binary format.
 
-Applications may choose to report either the minimum or the geometric mean of a predefined number of exections, and should also report whether the cache was cleared at the start of each exectution.
+How will we account for memory movement (e.g. if I have a task to be dispatched from CPU to GPU, do we include the data movement cost?)
+
+\subsection{Staging}
+
+Each benchmark is separated into stages based on which inputs the application is allowed to read at each stage. For example, to enable a clear distinction between matrix preprocessing and runtime in SpMV kernels, the first stage allows access to just the matrix. Any vector-agnostic preprocessing can be timed within the first stage. The second stage allows access to the vector, and thus computation of the output. We recognize that many divisions between stages are possible; we have selected separations into stages that we believe are meaningful for applications.
+
+\glb{Need to put some more thought into how results should be aggregated/specified as well as what kind of benchmarking practices we either require or trust users to use.}
+Applications may choose to report either the minimum or the geometric mean of a predefined number of exections, and should also report whether the cache was cleared at the start of each execution.
 
 \section{Correctness and Validation}
 
@@ -112,15 +154,28 @@ What makes a choice of dataset a good choice?
 \begin{itemize}
 	\item[$m$:] a positive integer.
 	\item[$n$:] a positive integer.
-	\item[$A$:] an $m \times n$ matrix in CSR format.
-	\item[$x$:] an $n$-length vector in dense format.
+	\item[$A$:] an $m \times n$ sparse matrix.
+	\item[$x$:] an $n$-length dense vector.
 \end{itemize}
 
 \subsubsection{Output Arguments}
 
 \begin{itemize}
-	\item[$y$:] a dense vector where $y_i = \sum_{ij}A_{ij}x_j$.
+	\item[$y$:] an $m$-length dense vector.
 \end{itemize}
+
+\subsubsection{Computation}
+
+$$y_i = \sum_{j}A_{ij}x_j$$
+
+\subsubsection{Sparse Format Variants}
+
+\glb{This text should be reduced.  It's just here to suggest}
+There should be a list here of options that have already been defined in the format section for $A$ and $x$ (and any other inputs).  In the case of SpMV, this just means specifying format for $A$, because $x$ and $y$ are dense.
+
+https://api.csswg.org/bikeshed/?url=https://raw.githubusercontent.com/GraphBLAS/binsparse-specification/main/spec/latest/index.bs
+
+https://github.com/GraphBLAS/binsparse-specification
 
 \subsubsection{Benchmark Stages (Provide timings for each stage)}
 
@@ -150,6 +205,11 @@ we separate the benchmark into two stages:
 	\item[\texttt{spmv/OSKI}:] the sparse matrices used in evaluation of
 	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}.
 \end{itemize}
+
+\subsubsection{Variants to Measure}
+
+Here are the combinations of settings that should actually be measured.
+
 
 Everything after this line is a draft:
 
@@ -340,6 +400,40 @@ Willow: I’ve taken a stab at listing some kernel definitions. One might group 
 	1 argument sparse: SpMV, SpMM, SDDMM,MTTKRP, SpTTM
 	2+ argument sparse: SpGEMM, SpMSpV, SpMTTKRP
 	Loop carry dependency: SpLU, SpTRSV, SpTRSM
+
+%comment: Here is a copy of the call for comments on this benchmark suite, perhaps we can work it into a motivation section above
+%Goals the the benchmark suite:
+%To discover the best possible approach
+%A well-specified benchmark suite that specifies all relevant aspects of problem setup and measurement to facilitate meaningful comparison
+%To provide a complete set of problems and data that exercise all important phenomena of sparse kernels and all realistic applications of sparse kernels.
+%Ease of use and encouraging participation across a wide variety of participants, from tensor compiler writers targeting many kernels to hardware developers of a single kernel
+	
+%Why bother doing this?
+%We are providing specifications for repeatable benchmarking, accuracy under reduced precision or semirings, and accounting for preprocessing time. 
+
+%Some other people have created tensor benchmarks: PASTA, GAP, Sparsebench
+%Why aren’t these sufficient?
+%Well, the people on this project haven’t found them sufficient for the papers they published recently (or did they not even try?)
+%PASTA doesn’t have a big enough variety of tensors
+%All existing benchmarks only provide a single (sparse) matrix or tensor, but most real problems require more than one input.
+%Most sparse benchmarks are focused on providing example data to the detriment of specifying computations and measurements
+%Sparse problems are highly dependent on format/data-structure choices and/or preprocessing.  (maybe talk about measures instead?)
+%Existing benchmarks 
+%Current benchmarks do not collect and archive community progress on key problems.
+%Are the problems in current benchmarks bullshit problems that no-one really cares about?  (Are ours?)
+%The existing datasets are very good for certain sparse applications, but the variety of applications and approaches today are not well represented.
+%List of specific, surprising, deficiencies
+%There is not sufficient focus on exploring theoretical limits???
+%We have an intellectual interest in the best real-world solutions with architectures that exist today.
+%The dense world has a roofline model, it implies a certain workflow for crafting dense kernels and focuses development. The sparse world has no model, we don’t know when to stop optimizing. 
+%What are the key problems that distill the essence of what “sparse linear/tensor algebra” is about?
+
+%This will benefit the community because it will make it easier to measure progress by having common benchmarks for projects and papers.
+
+%Our benchmark will include a few key features to support our goals: 
+%We’re interested in a broad set of benchmarks; our initial kernels include SpMV, SpMM, SpGEMM, SpMTTKRP, Iterative Solvers, Subgraph Counting, and more!
+%We will distribute simple, scalable reference implementations for our broad catalog of kernels. We will also include convenient code to generate inputs and compare against the reference.
+%We will curate the results online and provide performance metrics that can be used to assess fractions of peak, such as best-known modeled data movement, matrix partitions, and more!
 
 %Here is the bibliography:
 \bibliographystyle{plain}
