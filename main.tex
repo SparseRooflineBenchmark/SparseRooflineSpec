@@ -45,7 +45,13 @@ While the precise mathematical specification of the computation is specified in 
 
 \section{Tensor Formats}
 
-To enable cross-language compatibility, all tensors generators or dataset downloads will produce tensor files in Binsparse tensor formats. The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.ttx} and \texttt{spmv/RMAT/x.ttx}
+To enable cross-language compatibility, all tensors generators or dataset downloads will produce tensor files in Binsparse tensor formats \cite{noauthor_graphblasbinsparse-specification_nodate}. Possible tensor format names such as CSR or COO will refer to Binsparse format codes. Binsparse tensors are composed of several data vectors. On disk, these vectors may be stored in any array data file format such as an HDF5 container \cite{hdf5} or an \texttt{.npy} file \cite{} During benchmarking, inputs and output data are expected to correspond to in-memory versions of these same arrays.
+
+For example, the CSR structure involves three vectors, \texttt{pointers_to_1}, \texttt{indices_1}, and \texttt{values}. The column indices of the stored values located in row i are located in the range [pointers_to_1[i], pointers_to_1[i+1]) in the indices_1 array. The scalar values for each of those stored values is stored in the corresponding index in the values array. On disk, these arrays might be serialized to a text representation, but on 
+
+Within a row, elements shall be sorted by column index and must not be duplicated.
+
+The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.ttx} and \texttt{spmv/RMAT/x.ttx}
 
 \glb{make sure to precisely specify what "dense" format means here.}
 
@@ -81,9 +87,6 @@ Applications may choose to report either the minimum or the geometric mean of a 
 
 If algorithm is iterative, run steps until tolerance
 If algorithm is non-iterative, report achieved empirical accuracy compared to double.
-
-\section{In Memory Formats}
-
 
 \section{Datasets}
 
@@ -433,7 +436,7 @@ Willow: I’ve taken a stab at listing some kernel definitions. One might group 
 %We will curate the results online and provide performance metrics that can be used to assess fractions of peak, such as best-known modeled data movement, matrix partitions, and more!
 
 %Here is the bibliography:
-\bibliographystyle{plain}
+\bibliographystyle{plainurl}
 \bibliography{main}
 
 \end{document}
