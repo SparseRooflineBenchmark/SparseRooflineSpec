@@ -21,23 +21,20 @@
 
 \section{Introduction}
 
-We will discuss the introduction at a later meeting after previous comments have been incorporated into a draft.
+Sparse matrix and tensor problems have received increased attention in recent years. We have developed this benchmark suite to encourage meaningful comparison among the varieties of solutions.
+Direct comparisons in sparse computing research are difficult due to the wide variety of sparse kernels, input-dependent performance, differences in intended use cases for each kernel, and a lack of realistic or theoretically interesting datasets.
 
-%Sparse matrix and tensor problems have received increased attention in recent years. We have developed this benchmark suite to encourage meaningful comparison among the varieties of solutions.
-%Direct comparisons in sparse computing research are difficult due to the wide variety of sparse kernels, input-dependent performance, differences in intended use cases for each kernel, and a lack of realistic or theoretically interesting datasets.
+Prior benchmark suites have encouraged competition to improve the performance of various subsets or combinations of sparse kernels. SparseBench was proposed by the Netlib to measure numerical improvements to sparse iterative solvers \cite{noauthor_sparsebench_nodate}. The GAP (Graph Algorithm Platform) benchmark suite describes entire graph applications composed of multiple sparse kernels \cite{beamer_gap_2017}. PASTA (A Parallel Sparse Tensor Algorithm Benchmark Suite) was proposed to measure sparse tensor kernels, but only concerns kernels with a single sparse tensor\cite{li_pasta_2019}. 
 
-%Prior benchmark suites have encouraged competition to improve the performance of various subsets or combinations of sparse kernels. SparseBench was proposed by the Netlib to measure numerical improvements to sparse iterative kernels that appear in scientific computing applications. The GAP (Graph Algorithm
-%Platform) benchmark suite describes entire graph applications composed of multiple sparse kernels. PASTA (A Parallel Sparse Tensor Algorithm Benchmark Suite) was proposed to measure sparse tensor kernels, but only concerns kernels with a single sparse tensor. 
+Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
 
-%Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
+First, we specify datasets or generators for all of the inputs to a given kernel, including situations where multiple inputs are sparse and their patterns interact. As an example, this situation arises in sparse matrix times sparse matrix multiply, where the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
 
-%First, we specify datasets or generators for all of the inputs to a given kernel, including situations where multiple inputs are sparse and their patterns interact. As an example, this situation arises in sparse matrix times sparse matrix multiply, where the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
+Second, we specify explicit staging of sparse kernels to quantify the tradeoff between preprocessing time and runtime. Many optimizations to SpMV, for example, involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
 
-%Second, we specify explicit staging of sparse kernels to quantify the tradeoff between preprocessing time and runtime. Many optimizations to SpMV, for example, involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
+Third, we provide sparse tensor statistics for each problem (such as the sparsity of the output or the number of required operations), and generators for pathological cases. This helps quantify when implementations are reaching their theoretical limit, the roofline.
 
-%Third, we provide sparse tensor statistics for each problem (such as the sparsity of the output or the number of required operations), and generators for pathological cases. This helps quantify when implementations are reaching their theoretical limit, the roofline.
-
-%Our benchmark suite aims to provide researchers with the software and specifications to easily benchmark sparse problems on realistic datasets across multiple languages and architectures. We also provide an easily accessible database to tabulate the results: the best known approaches to sparse problems.
+Our benchmark suite aims to provide researchers with the software and specifications to easily benchmark sparse problems on realistic datasets across multiple languages and architectures. We also provide an easily accessible database to tabulate the results: the best known approaches to sparse problems.
 
 %Note: There is more potential text for the introduction at the end of the document
 
