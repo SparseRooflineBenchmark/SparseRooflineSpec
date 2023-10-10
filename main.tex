@@ -25,6 +25,7 @@ Sparse matrix and tensor problems have received increased attention in recent ye
 Direct comparisons in sparse computing research are difficult due to the wide variety of sparse kernels, input-dependent performance, differences in intended use cases for each kernel, and a lack of realistic or theoretically interesting datasets.
 
 Prior benchmark suites have encouraged competition to improve the performance of various subsets or combinations of sparse kernels. SparseBench was proposed by the Netlib to measure numerical improvements to sparse iterative solvers \cite{noauthor_sparsebench_nodate}. The GAP (Graph Algorithm Platform) benchmark suite describes entire graph applications composed of multiple sparse kernels \cite{beamer_gap_2017}. PASTA (A Parallel Sparse Tensor Algorithm Benchmark Suite) was proposed to measure sparse tensor kernels, but only concerns kernels with a single sparse tensor\cite{li_pasta_2019}. 
+\olivia{I think we also need to address database collections of sparse data here, like SuiteSparse and FROSTT, and how people use them as pseudo benchmark data but it is incomplete. This will further place where our contribution is and motivate this project}
 
 Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
 
@@ -43,50 +44,69 @@ Our benchmark suite aims to provide researchers with the software and specificat
 While the precise mathematical specification of the computation is specified in this document, we have also provided a reference implementation for each problem.
 %We will produce a framework for running our benchmarks on various target hardwares, providing data for various backends. The framework will have places to plug in a candidate implementation, and the script will output the runtimes for appropriate systems.
 
-\section{Tensor Formats}
+\section{Tensor Formats} \label{sec:formats}
 
-To enable cross-language compatibility, all tensors generators or dataset downloads will produce tensor files in Binsparse tensor formats \cite{noauthor_graphblasbinsparse-specification_nodate}. Possible tensor format names such as CSR or COO will refer to Binsparse format codes. Binsparse tensors are composed of several data vectors. On disk, these vectors may be stored in any array data file format such as an HDF5 container \cite{hdf5} or an \texttt{.npy} file \cite{} During benchmarking, inputs and output data are expected to correspond to in-memory versions of these same arrays.
+To enable cross-language compatibility, all tensors generators or dataset downloads will produce tensor files in Binsparse tensor formats \cite{noauthor_graphblasbinsparse-specification_nodate}. Possible tensor format names such as CSR or COO will refer to Binsparse format codes. Binsparse tensors are composed of several data vectors. On disk, these vectors may be stored in any array data file format such as an HDF5 container or an \texttt{.npy} file. During benchmarking, inputs and output data are expected to correspond to in-memory versions of these same arrays.
 
-For example, the CSR structure involves three vectors, \texttt{pointers_to_1}, \texttt{indices_1}, and \texttt{values}. The column indices of the stored values located in row i are located in the range [pointers_to_1[i], pointers_to_1[i+1]) in the indices_1 array. The scalar values for each of those stored values is stored in the corresponding index in the values array. On disk, these arrays might be serialized to a text representation, but on 
+For example, the CSR structure involves three vectors, \texttt{pointers\_to\_1}, \texttt{indices\_1}, and \texttt{values}. The column indices of the stored values located in row i are located in the range [\texttt{pointers\_to\_1[i], pointers\_to\_1[i+1]}) in the \texttt{indices\_1} array. The scalar values for each of those stored values is stored in the corresponding index in the values array. On disk, these arrays might be serialized to a text representation, but in memory in C, the data would be referenced by two pointers to integers and one pointer to floating-point numbers.
 
-Within a row, elements shall be sorted by column index and must not be duplicated.
+The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.bsp.h5} and \texttt{spmv/RMAT/x.bsp.h5}
 
-The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.ttx} and \texttt{spmv/RMAT/x.ttx}
+Subsequent sections of this document may specify that inputs live in ``dense'' formats or ``sparse'' formats. We say that the dense binsparse formats are those that store all possible entries, and sparse formats are those that allow one to store only a subset of the entries.
 
-\glb{make sure to precisely specify what "dense" format means here.}
+\willow{There are more possibilities here, we orthogonalize concerns to leave discussion to another committee...}
 
 \section{Timing}
 
-The time to transfer input/output data to and from disk should not be measured.  Timing should begin with inputs resident in memory with the specified binary format.  (see Format Section)  The timing should end after the output is resident in memory with the specified binary format.
+The time to transfer input/output data to and from the input file should not be measured.  Timing should begin with inputs resident in memory with the specified binary format (see Section~\ref{sec:formats}). The timing should end after the output is resident in memory with the specified binary format. This benchmark may apply to a diversity of architectures with different memory hierarchies, from distributed memories to special purpose hardware accelerators. The only requirement is that the outputs are resident in the same memory as the inputs, and that only one copy of the input is used. 
 
-How will we account for memory movement (e.g. if I have a task to be dispatched from CPU to GPU, do we include the data movement cost?)
+Some accelerators have high bandwidth costs to and from the chip (making timings for problems resident in accelerator memory less realistic for those who wish to use the data off-chip). However, this may be accounted for naturally as the problem size grows to exceed the on-chip memory.
 
 \subsection{Staging}
 
 Each benchmark is separated into stages based on which inputs the application is allowed to read at each stage. For example, to enable a clear distinction between matrix preprocessing and runtime in SpMV kernels, the first stage allows access to just the matrix. Any vector-agnostic preprocessing can be timed within the first stage. The second stage allows access to the vector, and thus computation of the output. We recognize that many divisions between stages are possible; we have selected separations into stages that we believe are meaningful for applications.
 
-\glb{Need to put some more thought into how results should be aggregated/specified as well as what kind of benchmarking practices we either require or trust users to use.}
+\glb{Discussion topic: Need to put some more thought into how results should be aggregated/specified as well as what kind of benchmarking practices we either require or trust users to use.}
 Applications may choose to report either the minimum or the geometric mean of a predefined number of exections, and should also report whether the cache was cleared at the start of each execution.
 
 \section{Correctness and Validation}
 
-\subsection{Exception Handling}
-\begin{itemize}
-\item NaN * Explicit zero = NaN
+    All kernels in the benchmark suite are composed of one or more statements of the form
+    \begin{equation}\label{eq:einsum}
+        A_{i...} = \sum B_{j...} \cdot C_{k...} \cdot ... ,
+    \end{equation}
+    where $i, j, k$ may contain overlapping indicies and the operators $+$ or $\cdot$ may be substituted with other operators.
 
-\item NaN * implicit zero = implicit zero
-\end{itemize}
+    \subsection{Allowed Optimizations}
+        Reference implementations are provided for all kernels in the benchmark suite, computing the operations with some arbitrary associativity for $\sum$. Optimizations which re-associate associative operators are always allowed. Additional optimizations are allowed, but the category of optimizations used must be declared from the following options, which build on each other in terms of permissiveness. (In this categorization, floating point numbers are treated as real numbers):
+        \begin{enumerate}
+            \item[\texttt{Semigroup}] Optimizations of operators using only associativity. This is the default category and we expect most optimizations fall under this category. This is the category of optimizations allowed under the LINPACK benchmark.
+            \item[\texttt{Semiring}] Optimizations using properties derived from operators forming semirings. This category allows optimizations such as Strassen's algorithm.
+            \item[\texttt{Field}] Optimizations using properties derived from operators forming rings or fields. Most mathematically equivalent optimizations are allowed here.
+        \end{enumerate}
 
-\subsection{Comparison to Reference Implementation}
-\begin{enumerate}
-    \item Allow reorganization of algorithm up to equivalence under arbitrary semirings (treat unsupported functions as uninterpreted) (e.g. thou shalt not do Strassen)
-    \item Allow reorganization of algorithm up to equivalence under infinite precision
-    \item Some combination of the above
-    \item Anything you want up to declared empirical accuracy
-\end{enumerate}
+    \subsection{Floating-Point Accuracy}
+        Although the previous section treats floating point numbers as real numbers, in practice they behave differently. We expect floating point numbers to handle exceptions exactly matching the reference, and to conform to user-declared relative error bounds, treating the reference implementation as a ground truth.
 
-If algorithm is iterative, run steps until tolerance
-If algorithm is non-iterative, report achieved empirical accuracy compared to double.
+        \subsection{Exception Handling}
+            Although sparse matrices may be entirely zero, we distinguish between explicit (stored) zeros and implicit (not stored) zeros. Exceptional values like \texttt{NaN}s and \texttt{Inf}s are not expected to interact with implicit zeros. In particular, we assume
+            \begin{align*}
+                \texttt{NaN} * 0 (\text{explicit}) &= \texttt{NaN} \\
+                \texttt{NaN} * 0 (\text{implicit}) &= 0 (\text{implicit}) \\
+                \texttt{Inf} * 0 (\text{explicit}) &= \texttt{NaN} \\
+                \texttt{Inf} * 0 (\text{implicit}) &= 0 (\text{implicit})
+            \end{align*}
+            
+        \subsection{Error Bounds}
+            Implementations involving floating point numbers must declare a relative error bound on \eqref{eq:einsum} of the following form, where $p$ and $\epsilon$ are declared parameters:
+
+            \[
+                \forall_{i...} \frac{A\_ref_{i...} - A\_res_{i...}}{A\_ref_{i...}} \leq \frac{n^p \epsilon \sum |B_{j...} \cdot C_{k...} \cdot ...|}{A\_ref_{i...}}
+            \]
+
+            If only \texttt{Semigroup} level optimizations are used, then the default values $p = 1$ and $\epsilon = 2^{-53}$ will hold.
+
+            This equation is inspired by the standard error bound for recursive summation, taken from \cite{higham}
 
 \section{Datasets}
 
@@ -173,9 +193,7 @@ $$y_i = \sum_{j}A_{ij}x_j$$
 \glb{This text should be reduced.  It's just here to suggest}
 There should be a list here of options that have already been defined in the format section for $A$ and $x$ (and any other inputs).  In the case of SpMV, this just means specifying format for $A$, because $x$ and $y$ are dense.
 
-https://api.csswg.org/bikeshed/?url=https://raw.githubusercontent.com/GraphBLAS/binsparse-specification/main/spec/latest/index.bs
-
-https://github.com/GraphBLAS/binsparse-specification
+\willow{This is the section that would specify whichever formats we think are interesting for SpMV.}
 
 \subsubsection{Benchmark Stages (Provide timings for each stage)}
 
@@ -245,6 +263,11 @@ Some combination of:
 3. Anything you want up to declared empirical accuracy
 If algorithm is iterative, run steps until tolerance
 If algorithm is non-iterative, report achieved empirical accuracy compared to double.
+
+For Spmv, we compare to the naive implemenation and take the L2-norm of the residual. 
+
+
+
 
 \subsection{SpMSpV}
 ``Sparse-Sparse Matrix-Vector Multiply'' i.e. the matrices and vectors are all sparse.
