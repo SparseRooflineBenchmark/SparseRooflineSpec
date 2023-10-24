@@ -10,7 +10,7 @@
 \newcommand {\dan}[1]{{\color{orange}\sf{[Dan: #1]}}}
 \newcommand {\glb}[1]{{\color{blue}\sf{[Gilbert: #1]}}}
 \newcommand {\jim}[1]{{\color{purple}\sf{[Jim: #1]}}}
-
+\newcommand {\hrl}[1]{{\color{cyan}\sf{[Hengrui: #1]}}}
 \title{The Sparse Roofline Benchmark Specification}
 \author{Editors: Willow Ahrens, Olivia Hsu, (Please add your name!)}
 \date{June 2023}
@@ -29,6 +29,7 @@ Prior benchmark suites have encouraged competition to improve the performance of
 
 Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
 
+\hrl{A bit unsure what kind of tensor generator we are looking into, maybe reference? Kernelized generator with pre-specified interactions for big tensor seems to be an open problem, like https://proceedings.mlr.press/v206/wesel23a.html.}
 First, we specify datasets or generators for all of the inputs to a given kernel, including situations where multiple inputs are sparse and their patterns interact. As an example, this situation arises in sparse matrix times sparse matrix multiply, where the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
 
 Second, we specify explicit staging of sparse kernels to quantify the tradeoff between preprocessing time and runtime. Many optimizations to SpMV, for example, involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
@@ -51,14 +52,14 @@ To enable cross-language compatibility, all tensors generators or dataset downlo
 For example, the CSR structure involves three vectors, \texttt{pointers\_to\_1}, \texttt{indices\_1}, and \texttt{values}. The column indices of the stored values located in row i are located in the range [\texttt{pointers\_to\_1[i], pointers\_to\_1[i+1]}) in the \texttt{indices\_1} array. The scalar values for each of those stored values is stored in the corresponding index in the values array. On disk, these arrays might be serialized to a text representation, but in memory in C, the data would be referenced by two pointers to integers and one pointer to floating-point numbers.
 
 The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.bsp.h5} and \texttt{spmv/RMAT/x.bsp.h5}
-
+\hrl{In h5 format, especially in those sparse data filled with zeros, practitioner will use a low-rank approximation (e.g., 'On the Compression of Low Rank Matrices' by Cheng et.al) to store it at the cost of minimal loss of accuracy.}
 Subsequent sections of this document may specify that inputs live in ``dense'' formats or ``sparse'' formats. We say that the dense binsparse formats are those that store all possible entries, and sparse formats are those that allow one to store only a subset of the entries.
 
 \willow{There are more possibilities here, we orthogonalize concerns to leave discussion to another committee...}
 
 \section{Timing}
 
-The time to transfer input/output data to and from the input file should not be measured.  Timing should begin with inputs resident in memory with the specified binary format (see Section~\ref{sec:formats}). The timing should end after the output is resident in memory with the specified binary format. This benchmark may apply to a diversity of architectures with different memory hierarchies, from distributed memories to special purpose hardware accelerators. The only requirement is that the outputs are resident in the same memory as the inputs, and that only one copy of the input is used. 
+The time to transfer input/output data to and from the input file should not be measured.  Timing should begin with inputs resident in memory with the specified binary format (see Section~\ref{sec:formats}). The timing should end after the output is resident in memory with the specified binary format. This benchmark may apply to a diversity of architectures with different memory hierarchies, from distributed memories to special purpose hardware accelerators. The only requirement is that the outputs are resident in the same memory as the inputs, and that only one copy of the input is used. \grace{Some clarification about how to handle this in the case of accelerators with distinct scratchpads and accumulators should be done. Do scratchpads and accumulators count as 'the same' memory?}
 
 Some accelerators have high bandwidth costs to and from the chip (making timings for problems resident in accelerator memory less realistic for those who wish to use the data off-chip). However, this may be accounted for naturally as the problem size grows to exceed the on-chip memory.
 
@@ -78,35 +79,26 @@ Applications may choose to report either the minimum or the geometric mean of a 
     where $i, j, k$ may contain overlapping indicies and the operators $+$ or $\cdot$ may be substituted with other operators.
 
     \subsection{Allowed Optimizations}
-        Reference implementations are provided for all kernels in the benchmark suite, computing the operations with some arbitrary associativity for $\sum$. Optimizations which re-associate associative operators are always allowed. Additional optimizations are allowed, but the category of optimizations used must be declared from the following options, which build on each other in terms of permissiveness. (In this categorization, floating point numbers are treated as real numbers):
-        \begin{enumerate}
-            \item[\texttt{Semigroup}] Optimizations of operators using only associativity. This is the default category and we expect most optimizations fall under this category. This is the category of optimizations allowed under the LINPACK benchmark.
-            \item[\texttt{Semiring}] Optimizations using properties derived from operators forming semirings. This category allows optimizations such as Strassen's algorithm.
-            \item[\texttt{Field}] Optimizations using properties derived from operators forming rings or fields. Most mathematically equivalent optimizations are allowed here.
-        \end{enumerate}
+        Reference implementations are provided for all kernels in the benchmark suite. Historically, we recongize that many optimizations have been proposed which are typically excluded from benchmarks, such as Strassen's algorithm. However, a goal of this benchmark is to encourage exploration of the unique properties of sparse kernels that arise from the constraint that one must do "all the same operations" as the reference implementation. We therefore add a category for limited optimizations, and considerations for those who wish to perform further algorithmic optimizations.
+
+    \subsubsection{The Semiring Category}
+        Both theoretical lower bounds and popular implementations of sparse kernels, such as GraphBLAS, have noticed that a wide variety of sparse optimizations can be described by the mathematical construct of semirings. Thus our "limited" optimizations may utilize any property derived from operators forming semirings. This is the default category we expect most optimizations to fall under, and includes the associative and commutative property. This does not include the distributive property.  In this categorization, we treat floating point numbers as real numbers for the purpose of applying mathematical properties.
+    \subsubsection{Beyond Semirings}
+        For implementations that wish to break the above rule, any mathematically equivalent optimization is allowed. This category allows optimizations such as Strassen's algorithm. 
 
     \subsection{Floating-Point Accuracy}
-        Although the previous section treats floating point numbers as real numbers, in practice they behave differently. We expect floating point numbers to handle exceptions exactly matching the reference, and to conform to user-declared relative error bounds, treating the reference implementation as a ground truth.
-
-        \subsection{Exception Handling}
-            Although sparse matrices may be entirely zero, we distinguish between explicit (stored) zeros and implicit (not stored) zeros. Exceptional values like \texttt{NaN}s and \texttt{Inf}s are not expected to interact with implicit zeros. In particular, we assume
-            \begin{align*}
-                \texttt{NaN} * 0 (\text{explicit}) &= \texttt{NaN} \\
-                \texttt{NaN} * 0 (\text{implicit}) &= 0 (\text{implicit}) \\
-                \texttt{Inf} * 0 (\text{explicit}) &= \texttt{NaN} \\
-                \texttt{Inf} * 0 (\text{implicit}) &= 0 (\text{implicit})
-            \end{align*}
-            
-        \subsection{Error Bounds}
-            Implementations involving floating point numbers must declare a relative error bound on \eqref{eq:einsum} of the following form, where $p$ and $\epsilon$ are declared parameters:
+        Although the previous section treats floating point numbers as real numbers, in practice they behave differently. We do not require any particular exception handling behavior.
+        
+         \subsubsection{Error Bounds}
+            Implementations involving floating point numbers must satisfy a relative error bound on \eqref{eq:einsum} of the following form, where $\epsilon$ is a declared parameter and $n$ is the number of elements in the sum:
 
             \[
-                \forall_{i...} \frac{A\_ref_{i...} - A\_res_{i...}}{A\_ref_{i...}} \leq \frac{n^p \epsilon \sum |B_{j...} \cdot C_{k...} \cdot ...|}{A\_ref_{i...}}
+                \forall_{i...} \left|A\_ref_{i...} - A\_res_{i...}\right| \leq n \epsilon \sum |B_{j...} \cdot C_{k...} \cdot ...|
             \]
 
-            If only \texttt{Semigroup} level optimizations are used, then the default values $p = 1$ and $\epsilon = 2^{-53}$ will hold.
+            If only \texttt{Semigroup} level optimizations are used, then this equation will hold for the default value of machine $\epsilon$.
 
-            This equation is inspired by the standard error bound for recursive summation, taken from \cite{higham}
+            This equation is inspired by the standard error bound for recursive summation, taken from \cite{higham_accuracy_1993}, and our generalized form can be adapted to several strategies for summation.
 
 \section{Datasets}
 
@@ -133,7 +125,7 @@ What makes a choice of dataset a good choice?
 		\item[\texttt{FROSTT}] The Formiddable Repository of Open Sparse Tensors and Tools \cite{smith_frostt_2017}
 		\item[\texttt{ImageNet}] \url{https://www.kaggle.com/competitions/imagenet-object-localization-challenge/}
 	\end{itemize}
-
+        \hrl{I suggest fMRI datasets and HMP datasets, https://adni.loni.usc.edu/, which are kind of popular and known to be lacking this kind of benchmark}
 \subsection{Tensor Generators}
 
     Tensor generators are listed here, together with a description of their
@@ -168,7 +160,7 @@ What makes a choice of dataset a good choice?
 \section{Kernels}
 
 \subsection{SpMV}
-
+Sparse Matrix Vector multiplication (SpMV) \hrl{abbr.}
 \subsubsection{Input Arguments}
 
 \begin{itemize}
@@ -225,7 +217,7 @@ we separate the benchmark into two stages:
 \end{itemize}
 
 \subsubsection{Variants to Measure}
-
+\hrl{We perhaps want to select some problems with ground truth so that we can have the actual error.}
 Here are the combinations of settings that should actually be measured.
 
 
@@ -264,7 +256,7 @@ Some combination of:
 If algorithm is iterative, run steps until tolerance
 If algorithm is non-iterative, report achieved empirical accuracy compared to double.
 
-For Spmv, we compare to the naive implemenation and take the L2-norm of the residual. 
+For SpMV, we compare to the naive implementation and take the L2-norm of the residual. 
 
 
 
