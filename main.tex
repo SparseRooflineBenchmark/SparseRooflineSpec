@@ -12,7 +12,7 @@
 \newcommand {\jim}[1]{{\color{purple}\sf{[Jim: #1]}}}
 \newcommand {\hrl}[1]{{\color{cyan}\sf{[Hengrui: #1]}}}
 \title{The Sparse Roofline Benchmark Specification}
-\author{Editors: Willow Ahrens, Olivia Hsu, (Please add your name!)}
+\author{Editors: Willow Ahrens, Olivia Hsu, Kyle Deeds, Grace Dinh (Please add your name!)}
 \date{June 2023}
 
 \begin{document}
@@ -67,8 +67,19 @@ Some accelerators have high bandwidth costs to and from the chip (making timings
 
 Each benchmark is separated into stages based on which inputs the application is allowed to read at each stage. For example, to enable a clear distinction between matrix preprocessing and runtime in SpMV kernels, the first stage allows access to just the matrix. Any vector-agnostic preprocessing can be timed within the first stage. The second stage allows access to the vector, and thus computation of the output. We recognize that many divisions between stages are possible; we have selected separations into stages that we believe are meaningful for applications.
 
-\glb{Discussion topic: Need to put some more thought into how results should be aggregated/specified as well as what kind of benchmarking practices we either require or trust users to use.}
-Applications may choose to report either the minimum or the geometric mean of a predefined number of exections, and should also report whether the cache was cleared at the start of each execution.
+\subsection{Results Aggregation}
+
+\subsubsection{Deterministic data}
+
+    In situations where the input sparsity patterns are fixed, applications may run as many executions as they wish, reporting the minimum time. Applications should report whether the cache was cleared at the start of each execution.
+
+\subsubsection{Randomized data}
+
+    In situations where the input sparsity patterns are drawn from a distribution, applications must choose a random seed for the generator, and report the mean and variance of the execution times, as well as confidence intervals for each statistic. Implementations are free to choose how many executions are used, but a confidence interval of at least 95\% is required for the mean time.
+
+    The software implementation provides a convenient command-line utility to compute these statistics, as well as an in-software utility, so implementers need only record the runtime on each random input.
+
+    For each random trial input, implementers should follow the guidelines for deterministic data, taking the minimum of as many execution times as they wish and reporting whether the cache was cleared before each.
 
 \section{Correctness and Validation}
 
@@ -99,6 +110,93 @@ Applications may choose to report either the minimum or the geometric mean of a 
             If only \texttt{Semigroup} level optimizations are used, then this equation will hold for the default value of machine $\epsilon$.
 
             This equation is inspired by the standard error bound for recursive summation, taken from \cite{higham_accuracy_1993}, and our generalized form can be adapted to several strategies for summation.
+
+            \subsection{Floating Point Accuracy V2 \jim{This draft is based on the current draft of the Sparse BLAS Standard}}
+
+            The emergence of various arithmetic formats, including mixed precision,
+is making it increasingly important for numerical software to carefully
+document what accuracy and related properties users can expect,
+and for standards committees to evaluate these
+claims, through extensive test code. Based on existing formats and
+algorithms, we propose 2 error bounds, each depending on 2 parameters.
+The two 2 error bounds correspond to using either conventional floating point,
+or some variant of block floating point, to accumulate the (sparse) dot products
+underlying those SparseBLAS operations that are expressible using 
+dot products (we assume no Strassen-like algorithms are used, since these
+make the intermediate results much less sparse). The two parameters 
+correspond to the values of machine epsilon used to accumulate the dot product, 
+and to store the final result, which may be lower in the case of mixed precision. 
+The error bounds can of course depend both on the operation, and the input and 
+output data types.
+
+We express the overall error bound as follows. $E$ represents the exact result
+(of a dot product), $A_1$ the first approximation, and $A_2$ the final approximation,
+which may equal $A_1$, or require rounding $A_1$ to lower precision.
+Suppose we can bound $|E - A_1| \leq B_1$ (an absolute error bound),
+and $|A_2 - A_1| \leq B_2 \dot |A_1|$ (a relative error bound, so $B_2 \ll 1$). 
+Then the overall bound is
+\begin{eqnarray*}
+|E - A_2| & \leq & |E - A_1| + |A_1 - A_2| 
+            \leq B_1 + B_2 \cdot |A_1|
+            \leq B_1 + B_2 \cdot (|E| + B_1) \\
+        & = & B_2 \cdot |E| + B_1 \cdot (1+B_2)
+            \approx  B_2 \cdot |E| + B_1
+\end{eqnarray*}
+since $B_2 \ll 1$.
+In most cases, either $B_2 = 0$ (without mixed precision) or $B_2$ is the
+machine epsilon of the output format. Letting $\sum_{i=1}^n x_i \cdot y_i$
+be the exact dot product, $B_1$ will either be
+\[
+   B_{11} = f(n) \cdot \epsilon \cdot \sum_{i=1}^n | x_i |  \cdot  | y_i |
+\]
+if floating point arithmetic (with machine precision $\epsilon$) is used 
+to compute the dot product, or
+\[
+   B_{12} = g(n) \cdot \epsilon \cdot \max_i | x_i |  \cdot  \max_i | y_i |
+\]
+if some kind of block floating point is used, including the technique
+exploiting integer arithmetic in arxiv:2306.11975v3.
+The functions $f(n)$ and $g(n)$ are often $n$ in the
+worst case, but can also be supplied by the sparse BLAS
+developer.
+
+It is not difficult  to see how to generate vectors $x$ and $y$ where $B_{11} \ll  B_{12}$,
+to distinguish these two cases. More thought is required to design
+vectors $x$ and $y$ where different variants of block floating point will have
+errors closer to $B_{12}$ than $B_{11}$.
+
+Other issues to possibly consider are (1) when $A$ in $A \cdot x$ is stored
+in CSC format using block floating point, so that the inner loop is doing a
+sparse axpy, and (2) when the common exponent in block floating point is
+shared over more than 1 row or 1 column of $A$.
+
+\subsubsection{Exception Handling}
+
+Other numerical properties to be tested include the range of numbers
+that can be handled without over/underflow, and whether NaNs and
+Infs propagate as expected (arxiv:2207.09281).
+
+One difference between the dense BLAS and sparse BLAS
+is exception propagation with implicit zeros.
+Implicit zeros in a sparse matrix A should probably not create NaNs when (not) performing
+the multiplication A(i,j)*x(j) = 0 * Inf or 0 * NaN. This seems consistent with user expectations,
+and analogous to how we treat alpha = 0 or beta = 0. But if an optimization like register blocking
+turns an implicit zero into an explicit zero, then the NaN might propagate. I think this is ok for
+the default behavior, possibly propagating exceptions "too much" but with the best performance.
+We could discuss alternatives, like scanning x (in A*x) for Infs and NaNs, and doing something
+more carefully in the very rare event that one appears, and providing this as a user selectable option.
+Similar considerations apply to masked operations, if we choose to include those. We could also consider a third
+user option, guaranteed bitwise-reproducility, including
+exception propagation, which could be much slower, but
+useful for debugging.
+
+We should also consider how to handle zeros in x in TRSV: solving T*x = b. In the old reference BLAS, TRSV sometimes did and
+sometimes did not check for zeros in x to avoid the work of multiplying the i-th column of T by x(i)=0.
+These x(i)=0 could result either from trailing/leading zeros in b when T is upper/lower triangular,
+or from exact numerical cancellation (much rarer). In the dense case we proposed disallowing
+checking for zeros in x, and providing a simple routine to count the number of leading/trailing
+zeros in b in case the user wanted to take advantage of this optimization. We should think about
+these options when we discuss sparse TRSV, since x(i)=0 could occur more frequently in the sparse case. 
 
 \section{Datasets}
 
@@ -295,18 +393,18 @@ SpGEMM with various levels of size prediction difficulty and output reuse:
 	Distribution: The dense matrices are random, but the tensor can be fixed or random.
 
 
-\subsection{Candecomp}
+\subsection{Candecomp (deprecated)}
 	Computation: Some fixed number of MTTKRPs of the same tensor in alternating transposition orders on the same factor matrices
 	Distribution: The tensor can be fixed or random here as well.
 Stencil (Same as SpMV, but matrix is a stencil)
 	Computation: SpMV or Congugate gradient
 	Distribution: Matrix is a toeplitz matrix for a particular stencil, vector is random
 
-\subsection{FFT}
+\subsection{FFT (deprecated)}
 	Computation: SpMV
 	Distribution: Matrix is an FFT matrix, vector is random
 
-\subsection{Dynamic PageRank}
+\subsection{Dynamic PageRank (deprecated)}
 	Computation: Compute Pagerank of a matrix
 	Stage 1.
 		The first (n - d) rows and columns of a matrix are given
@@ -317,7 +415,7 @@ Stencil (Same as SpMV, but matrix is a stencil)
 	Notes: This incentivizes the implementation to use the first portion of the matrix to accelerate the computation in stage 2.
 (Gilbert: This is just a power iteration? Willow: It is. I was trying to emphasize the dynamic graph kernel problem, where updates to a graph are received in real time and we are trying to maintain some statistics on the graph as the updates come in. Gilbert: I'm not sure page-rank or similar are incrementalized in practice?  Maybe.  Maybe worth considering social network clustering algorithms here instead?)
 
-\subsection{Quantum Circuits}
+\subsection{Quantum Circuits (Deprecated)}
 	Computation: Compute the distribution of the quantum circuits outputs
 	Distribution: 1 Tensor for each circuit element (10s-100s total)
 Transformer Model:
@@ -335,11 +433,11 @@ FF[S,FF] &= Relu(CZ[S,E] * WFF1[E,FF])\\
 O[S,E] &= Relu(FF[S,FF] * WFF2[FF,E])\\
 \end{align*}
 
-\subsection{CountSat}
+\subsection{CountSat (Deprecated?)}
 	Computation: Compute the number of satisfying solutions for a sat problem. This is a tensor contraction along each variable of the product of all clause tensors according to matching variables.
 	Distribution: Randomly generated sat clauses with variables of length 3-10 (Existing Sat datasets? Are random sat problems unsatisfiable w.h.p.?)
 
-\subsection{Graph Neural Networks}
+\subsection{Graph Neural Networks (TODO)}
 	Computation: Compute one iteration of message passing
 	Distribution: Random graph models, random sparsified weights
 
@@ -351,7 +449,7 @@ $AggNeighborMessages[u, k’] = Sum_v(NeighborMessage[u, v, k’])$
 % This could also be a neural network
 $NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]) $
 
-\subsection{SubGraph Counting}
+\subsection{SubGraph Counting (Deprecated?)}
 	Computation: Compute the number of subgraphs of a particular kind (triangle, flower, petal, etc.)
 	Distribution: Random graph models, directed vs undirected subvariants
 
