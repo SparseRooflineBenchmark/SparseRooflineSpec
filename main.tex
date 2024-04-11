@@ -29,7 +29,7 @@ Prior benchmark suites have encouraged competition to improve the performance of
 
 Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
 
-\hrl{A bit unsure what kind of tensor generator we are looking into, maybe reference? Kernelized generator with pre-specified interactions for big tensor seems to be an open problem, like https://proceedings.mlr.press/v206/wesel23a.html.}
+%\hrl{A bit unsure what kind of tensor generator we are looking into, maybe reference? Kernelized generator with pre-specified interactions for big tensor seems to be an open problem, like https://proceedings.mlr.press/v206/wesel23a.html.}
 First, we specify datasets or generators for all of the inputs to a given kernel, including situations where multiple inputs are sparse and their patterns interact. As an example, this situation arises in sparse matrix times sparse matrix multiply, where the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
 
 Second, we specify explicit staging of sparse kernels to quantify the tradeoff between preprocessing time and runtime. Many optimizations to SpMV, for example, involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
@@ -52,10 +52,12 @@ To enable cross-language compatibility, all tensors generators or dataset downlo
 For example, the CSR structure involves three vectors, \texttt{pointers\_to\_1}, \texttt{indices\_1}, and \texttt{values}. The column indices of the stored values located in row i are located in the range [\texttt{pointers\_to\_1[i], pointers\_to\_1[i+1]}) in the \texttt{indices\_1} array. The scalar values for each of those stored values is stored in the corresponding index in the values array. On disk, these arrays might be serialized to a text representation, but in memory in C, the data would be referenced by two pointers to integers and one pointer to floating-point numbers.
 
 The precise filenames and paths will be specified along with the benchmark kernel that uses them. For example, one might use the RMAT matrix generator included with the suite to generate inputs, stored in \texttt{spmv/RMAT/A.bsp.h5} and \texttt{spmv/RMAT/x.bsp.h5}
-\hrl{In h5 format, especially in those sparse data filled with zeros, practitioner will use a low-rank approximation (e.g., 'On the Compression of Low Rank Matrices' by Cheng et.al) to store it at the cost of minimal loss of accuracy.}
+%\hrl{In h5 format, especially in those sparse data filled with zeros, practitioner will use a low-rank approximation (e.g., 'On the Compression of Low Rank Matrices' by Cheng et.al) to store it at the cost of minimal loss of accuracy.}
 Subsequent sections of this document may specify that inputs live in ``dense'' formats or ``sparse'' formats. We say that the dense binsparse formats are those that store all possible entries, and sparse formats are those that allow one to store only a subset of the entries.
 
-\willow{There are more possibilities here, we orthogonalize concerns to leave discussion to another committee...}
+For extended compatibility, implementations may choose to read the matrix from disk in another format, such as FROSTT, MatrixMarket, or TensorMarket \cite{}, but must of course still convert the data to the correct in-memory binsparse format before benchmarking.
+
+We recognize that there are many possible formats to use for benchmarking, but believe that the 
 
 \section{Timing}
 
@@ -460,6 +462,7 @@ Oh cool, quantum chemistry stuff!
 
 \subsection{Morgue from Earlier Notes}
 
+\begin{verbatim}
 Produce a List of all Computation Kernels (Acronyms & Definitions)
 SpMV? SpMM? SpDM3? SpMSpV? SPGEMM? SpLU? SpTRSV/M?
 
@@ -513,6 +516,7 @@ Willow: I’ve taken a stab at listing some kernel definitions. One might group 
 	1 argument sparse: SpMV, SpMM, SDDMM,MTTKRP, SpTTM
 	2+ argument sparse: SpGEMM, SpMSpV, SpMTTKRP
 	Loop carry dependency: SpLU, SpTRSV, SpTRSM
+\end{verbatim}
 
 %comment: Here is a copy of the call for comments on this benchmark suite, perhaps we can work it into a motivation section above
 %Goals the the benchmark suite:
