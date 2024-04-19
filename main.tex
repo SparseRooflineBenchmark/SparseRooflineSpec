@@ -12,7 +12,12 @@
 \newcommand {\jim}[1]{{\color{purple}\sf{[Jim: #1]}}}
 \newcommand {\hrl}[1]{{\color{cyan}\sf{[Hengrui: #1]}}}
 \title{The Sparse Roofline Benchmark Specification}
-\author{Editors: Willow Ahrens, Olivia Hsu, Kyle Deeds, Grace Dinh, Gilbert Bernstein(Please add your name!)}
+\author{Willow Ahrens \and
+	Olivia Hsu \and
+	Kyle Deeds \and
+	Grace Dinh \and
+	Gilbert Bernstein \and
+	(Please add your name!)}
 \date{June 2023}
 
 \begin{document}
@@ -21,20 +26,76 @@
 
 \section{Introduction}
 
-Sparse matrix and tensor problems have received increased attention in recent years. We have developed this benchmark suite to encourage meaningful comparison among the varieties of solutions.
+Sparse matrix and tensor problems are at the heart of many applications, from graph algorithms to scientific computing to machine learning.
+%
+This has led to intense research interest, spanning several decades and countless approaches \cite{gao_systematic_2024}.
+%
+Much of the variation in approach is due to the variation in application characteristics.
+%
+The performance of sparse code depends on nonzero patterns in the data, how the patterns interact, and the implementation choices made by the framework.
+%
+This leads to a situation where different algorithms are better suited to different appliations, with vastly different properties.
+%
+The situation is complicated by the recent development of large sparse frameworks and compilers, spanning a multitude of different applications.
+%
+Unlike in dense computing, where it is relatively simple to bound the peak throughput of an application, there is no universally accepted ``Speed of Light'' for sparse operations.
+
+In situations like these, benchmark suites can clarify the performance landscape by providing a representative and exhaustive metric of comparison.
+%
+Several benchmark suites have been proposed, but none of them sufficiently characterize an exhaustive, specific study of sparse linear algebra.
+%
 Direct comparisons in sparse computing research are difficult due to the wide variety of sparse kernels, input-dependent performance, differences in intended use cases for each kernel, and a lack of realistic or theoretically interesting datasets.
+%
+SparseBench (a Netlib project) focuses on numerical improvements to iterative solvers\cite{noauthor_sparsebench_nodate}.
+%
+The GAP (Graph Algorithm Platform) benchmark focuses on entire graph applications, composed of multiple sparse kernels\cite{beamer_gap_2017}.
+%
+PASTA (A Parallel Sparse Tensor Algorithm Benchmark Suite) was proposed to measure sparse tensor kernels, but only concerns kernels with a single sparse tensor\cite{li_pasta_2019}. 
+%
+In the absense of more focused benchmarks, researchers have also turned to database collections of sparse data, such as the University of Florida Sparse Matrix Collection \cite{davis_university_2011} or the FROSTT sparse tensor collection \cite{smith_frostt_2017}.
+%
+Unfortunately, these collections only collect single sparse matrices without context, so they are not representative inputs to particular sparse problems, especially problems which concern more than one sparse input.
 
-Prior benchmark suites have encouraged competition to improve the performance of various subsets or combinations of sparse kernels. SparseBench was proposed by the Netlib to measure numerical improvements to sparse iterative solvers \cite{noauthor_sparsebench_nodate}. The GAP (Graph Algorithm Platform) benchmark suite describes entire graph applications composed of multiple sparse kernels \cite{beamer_gap_2017}. PASTA (A Parallel Sparse Tensor Algorithm Benchmark Suite) was proposed to measure sparse tensor kernels, but only concerns kernels with a single sparse tensor\cite{li_pasta_2019}. 
-\olivia{I think we also need to address database collections of sparse data here, like SuiteSparse and FROSTT, and how people use them as pseudo benchmark data but it is incomplete. This will further place where our contribution is and motivate this project}
+Despite the staggering magnitude of interest, these exisiting benchmark suites are insufficient to clarify the landscape.
+%
+They lack sparse-sparse interactions and don’t account for sparsity pattern prepreprocessing time.
+%
+There is also no benchmark suite that spans a wide enough space of sparse kernels to enable meaningful comparisons between tensor compilers.
+%
+There is also no collection of best-known results for specific problems.
+%
+We need a new benchmark suite that exhibits relevant properties and agreed upon measures of comparison.
 
-Our benchmark suite aims to measure a set of specific sparse kernels that completely covers the sparse performance engineering landscape. This requires several novel features.
+We propose the Sparse Roofline Benchmark suite to accurately characterize the speed of light for sparse computing.
+%
+This requires several novel features:
+\begin{itemize}
+	\item We specify datasets for \textbf{problems}, rather than individual matrices.
+	%
+	This is necessary because the interaction between the nonzero patterns of sparse inputs has a performance effect.
+	%
+	For example, in sparse matrix times sparse matrix multiply, the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
+	\item We separate algorithms and measurement into \textbf{stages} to quantify the tradeoff between preprocessing time and runtime.
+	%
+	Many optimizations to sparse code, such as autotuning or inspector/executor approaches, make optimization decisions based on the concrete problem instances at runtime.
+	%
+	For example, several approaches to SpMV involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
+	\item For each problem, we also provide \textbf{random problem generators}.
+	%
+	If we only specified concrete problems, rather than random ones, it might be easy to tune hyperparameters or even specific instance-specific optimizations ahead of time, resulting
+	in an inaccurate characterization of preprocessing time.
+	%
+	Random instances provide an opportunity to better test inspector/executor strategies and make distributional observations.
+	%
+	We also provide generators for pathological cases, to help quantify when implementations are reaching their theoretical limit, the roofline.
+	\item
+	%
+	We also provide sparse tensor statistics for each problem (such as the sparsity of the output or the number of required operations) 
+\end{itemize}
 
-%\hrl{A bit unsure what kind of tensor generator we are looking into, maybe reference? Kernelized generator with pre-specified interactions for big tensor seems to be an open problem, like https://proceedings.mlr.press/v206/wesel23a.html.}
-First, we specify datasets or generators for all of the inputs to a given kernel, including situations where multiple inputs are sparse and their patterns interact. As an example, this situation arises in sparse matrix times sparse matrix multiply, where the sparsity of the output is not known at the outset and may belong to different distributions depending on how the inputs correlate. 
-
-Second, we specify explicit staging of sparse kernels to quantify the tradeoff between preprocessing time and runtime. Many optimizations to SpMV, for example, involve reformatting and reorganizing the matrix before multiplying it, under the assumption it will be used multiple times.
-
-Third, we provide sparse tensor statistics for each problem (such as the sparsity of the output or the number of required operations), and generators for pathological cases. This helps quantify when implementations are reaching their theoretical limit, the roofline.
+Our benchmark suite aims to spans the sparse performance engineering landscape.
+%
+In particular, our goal is to fully characterize the unique properties of all kernels which can be expressed with an operator-generalized einstein summation, or a mapreduce statement, inspired by array programming frameworks such as TACO or NumPy.
 
 Our benchmark suite aims to provide researchers with the software and specifications to easily benchmark sparse problems on realistic datasets across multiple languages and architectures. We also provide an easily accessible database to tabulate the results: the best known approaches to sparse problems.
 
@@ -282,7 +343,7 @@ Output clusters
      
 \end{enumerate}
 The relationship to the spGEMM operation (sparse General Matrix Multiply) is primarily in the "Expand" step. GEMM is a basic operation in linear algebra that computes the product of two matrices and is central to many algorithms in numerical analysis, including those used in cluster analysis like the MCL. The matrix multiplication in the "Expand" step is essentially a GEMM operation where the current matrix M is multiplied by itself to simulate random walks through the graph, which are key to identifying the clusters. This step can be computationally intensive, and efficient GEMM operations are crucial for the MCL algorithm's performance, especially on large graphs.
-\hrl{This is implemented at https://github.com/SparseRooflineBenchmark/SparseRooflineBenchmark/issues/4#issuecomment-1979101102, there seems to be one graduate student trying to gather some more real-world examples.}
+%\hrl{This is implemented at https://github.com/SparseRooflineBenchmark/SparseRooflineBenchmark/issues/4#issuecomment-1979101102, there seems to be one graduate student trying to gather some more real-world examples.}
 \section{Kernels}
 
 \subsection{SpMV}
@@ -385,7 +446,7 @@ For similar reasons to SpMV, we separate the benchmark into two stages:
         wide & $d = 128$\\\hline
     \end{tabular}
 
-cite[https://iacoma.cs.uiuc.edu/iacoma-papers/ics22_2.pdf]
+\cite{yesil_dense_2022}
 
 \textbf{dataset} keys
 \begin{itemize}
@@ -448,247 +509,6 @@ For similar reasons to other benchmarks, we separate into two stages:
         \item[\texttt{B}] $erdos(m, n, 0.0001)$, in CSR format.
 	\end{itemize}
 \end{itemize}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%  BEWARE Dead Code Ahead!     %%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Morgue: Future Writing}
-
-\subsubsection{Variants to Measure}
-\hrl{We perhaps want to select some problems with ground truth so that we can have the actual error.}
-Here are the combinations of settings that should actually be measured.
-
-
-Everything after this line is a draft:
-
-
-
-\subsubsection{Variations}
-    Also include SpMV transpose.
-
-    Mention $A=A^T$, possible additional optimizations,
-    including``Fast Bilinear Algorithms for Symmetric Tensor 
-    Contractions'', E. Solomonik, J. Demmel, Computational Methods
-    in Applied Mathematics, Feb 2020.
-    \newline
-    https://doi.org/10.1515/cmam-2019-0075
-
-
-
-\subsection{Iterative (Jacobi? PCG?) Solve}
-	Input (Stage 1):
-		Matrix given (e.g. “Boeing/ct20stif” or power-law graph laplacian)
-	Input (Stage 2):
-		Vector (e.g. uniform random dense vector)
-	Compute:
-		$y_j = A_ij * x_j$
-	Timings:
-Report time start stage 1 to start stage 2
-Report time start stage 2 to end
-Report aggregate time
-Some combination of:
-1. Allow reorganization of algorithm up to equivalence under arbitrary semirings (treat unsupported functions as uninterpreted) (e.g. thou shalt not do Strassen)
-2. Allow reorganization of algorithm up to equivalence under infinite precision
-2.5 (2 and 3)
-3. Anything you want up to declared empirical accuracy
-If algorithm is iterative, run steps until tolerance
-If algorithm is non-iterative, report achieved empirical accuracy compared to double.
-
-For SpMV, we compare to the naive implementation and take the L2-norm of the residual. 
-
-
-
-
-\subsection{SpMSpV}
-``Sparse-Sparse Matrix-Vector Multiply'' i.e. the matrices and vectors are all sparse.
-$$y_i += A_{i,j} * x_j$$
-
-\subsection{SpMM (SpGEMM?)}
-	Input (Stage 1):
-		Matrix
-	Input (Stage 2):
-		Vector
-	Compute:
-		$y_ij = A_ik * x_kj$
-	Timings:
-Report time start stage 1 to start stage 2
-Report time start stage 2 to end
-Report aggregate time
-
-SpGEMM from multi-source BFS:
-	Computation: Compute BFS parents starting from a particular set of vertices.
-	Distribution: If the graph is fixed, you can precompute the BFS parents (not interesting). Thus, this problem is only well-posed on graph generators. I’m not sure if the set of vertices matters, could pick randomly.
-
-SpGEMM from setup phase of algebraic multigrid:
-	Computation: Compute $R_lA_lP_L$ as described in \url{https://doi.org/10.1145/3571157}.
-	Distribution: matrices described in \url{https://doi.org/10.1145/3571157}
-SpGEMM with various levels of size prediction difficulty and output reuse:
-	Computation: Compute C = A*B
-	Distribution: Generate A and B (using RMAT, perhaps?) so that expected number of nonzeros in A and B remain fixed but expected number of nonzeros in C can be very high, very low, or highly variable
-
-\subsection{ATA}
-
-\subsection{MTTKRP}
-	Computation: A single MTTKRP 
-	Distribution: The dense matrices are random, but the tensor can be fixed or random.
-
-
-\subsection{Candecomp (deprecated)}
-	Computation: Some fixed number of MTTKRPs of the same tensor in alternating transposition orders on the same factor matrices
-	Distribution: The tensor can be fixed or random here as well.
-Stencil (Same as SpMV, but matrix is a stencil)
-	Computation: SpMV or Congugate gradient
-	Distribution: Matrix is a toeplitz matrix for a particular stencil, vector is random
-
-\subsection{FFT (deprecated)}
-	Computation: SpMV
-	Distribution: Matrix is an FFT matrix, vector is random
-
-\subsection{Dynamic PageRank (deprecated)}
-	Computation: Compute Pagerank of a matrix
-	Stage 1.
-		The first (n - d) rows and columns of a matrix are given
-	Stage 2.
-		The final d rows and columns are given
-	Computation:
-		Do 20 iterations of pagerank
-	Notes: This incentivizes the implementation to use the first portion of the matrix to accelerate the computation in stage 2.
-(Gilbert: This is just a power iteration? Willow: It is. I was trying to emphasize the dynamic graph kernel problem, where updates to a graph are received in real time and we are trying to maintain some statistics on the graph as the updates come in. Gilbert: I'm not sure page-rank or similar are incrementalized in practice?  Maybe.  Maybe worth considering social network clustering algorithms here instead?)
-
-\subsection{Quantum Circuits (Deprecated)}
-	Computation: Compute the distribution of the quantum circuits outputs
-	Distribution: 1 Tensor for each circuit element (10s-100s total)
-Transformer Model:
-	Computation: Compute the output of a single encoder block in a transformer model with k attention heads
-	Distribution: Randomly initialized weights with some sparsification algorithm applied
- 
- \begin{align*}
-Q[S, E, K] &= \sum_C(I[S, C] * WQ[C, E, K])\\
-K[S, E, K] &= \sum_C(I[S, C] * WK[C, E, K])\\
-V[S, E, K] &= \sum_C(I[S, C] * WV[C, E, K])\\
-AP[S, S’, K] &= \sum_E(Q[S, E, K] * K[S’, E, K]) / 8\\
-Z[S, E, K] &= \sum_S’(Sigmoid(AP[S,S’,K]) * V[S’, E, K])\\
-CZ[S, E] &= \sum_k(Z[S, E, K] * WZ[K,E])\\
-FF[S,FF] &= Relu(CZ[S,E] * WFF1[E,FF])\\
-O[S,E] &= Relu(FF[S,FF] * WFF2[FF,E])\\
-\end{align*}
-
-\subsection{CountSat (Deprecated?)}
-	Computation: Compute the number of satisfying solutions for a sat problem. This is a tensor contraction along each variable of the product of all clause tensors according to matching variables.
-	Distribution: Randomly generated sat clauses with variables of length 3-10 (Existing Sat datasets? Are random sat problems unsatisfiable w.h.p.?)
-
-\subsection{Graph Neural Networks (TODO)}
-	Computation: Compute one iteration of message passing
-	Distribution: Random graph models, random sparsified weights
-
-% WX, BX is a simple affine transform, but it could be NN layers instead
-$NeighborMessages[u, v, k’] = A[u, v]*(Sum_k(X[v, k]*WX[k, k’]) +BX[k’])  $
-
-$AggNeighborMessages[u, k’] = Sum_v(NeighborMessage[u, v, k’])$
-
-% This could also be a neural network
-$NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]) $
-
-\subsection{SubGraph Counting (Deprecated?)}
-	Computation: Compute the number of subgraphs of a particular kind (triangle, flower, petal, etc.)
-	Distribution: Random graph models, directed vs undirected subvariants
-
-
-\subsection{Quantum Chemistry Stuff}
-Oh cool, quantum chemistry stuff!
-
-\subsection{Morgue from Earlier Notes}
-
-Produce a List of all Computation Kernels (Acronyms \& Definitions)
-SpMV? SpMM? SpDM3? SpMSpV? SPGEMM? SpLU? SpTRSV/M?
-
-SpMV:
-	“Sparse Matrix-Vector Multiply”
-Dense x,y, Sparse A
-y[i] += A[i, j] * x[j]
-SpMSpV:
-	“Sparse-Sparse Matrix-Vector Multiply”
-Sparse A, x, y
-y[i] += A[i, j] * x[j]
-SpGEMM:
-	“Sparse-Sparse Matrix Multiply”
-Sparse C, A, B, often all matrices are square
-C[i, j] += A[i, k] * B[k, j]
-Masked SpGEMM:
-	Sparse (sometimes Boolean) S, C, Sparse A, B
-C[i, j] += S[i, j] * A[i, k] * B[k, j]
-SDDMM:
-	“Sampled Dense Dense Matrix Multiply”
-	Sparse (sometimes Boolean) S, C, Dense A, B
-C[i, j] += S[i, j] * A[i, k] * B[k, j]
-
-SpMM:
-	“Sparse Matrix Multiply”
-Dense C, B, Sparse A, often J small constant
-C[i, j] += A[i, k] * B[k, j]
-
-MTTKRP:
-	“Matricized Tensor Times Khatri-Rao Product”
-Sparse B, Dense A, C, D
-A[i, j] += B[i, k, l] * C[k, j] * D[l, j]
-SpTTM:
-	“Sparse Tensor Times Matrix”
-Sparse A, B, Dense C, usually K >> L or L >> K
-A[i, j, k] += B[i, j, l] * C[k, l]
-SpMTTKRP:
-Sparse A, B, C, D
-A[i, j] += B[i, k, l] * C[k, j] * D[l, j]
-SpLU:
-	“Sparse LU Factorization”
-Sparse A, produce permutations P, Q, sparse lower triangular L, and sparse upper triangular U
-such that PAQ=LU
-SpTRSV:
-	“Sparse Triangular Solve”
-	Sparse triangular matrix A, dense vector y, produce dense vector x such that Ax = y
-SpTRSM:
-	Sparse triangular matrix A, dense matrix Y, produce dense matrix X such that AX = Y
-
-Willow: I’ve taken a stab at listing some kernel definitions. One might group them broadly by:
-	1 argument sparse: SpMV, SpMM, SDDMM,MTTKRP, SpTTM
-	2+ argument sparse: SpGEMM, SpMSpV, SpMTTKRP
-	Loop carry dependency: SpLU, SpTRSV, SpTRSM
-
-%comment: Here is a copy of the call for comments on this benchmark suite, perhaps we can work it into a motivation section above
-%Goals the the benchmark suite:
-%To discover the best possible approach
-%A well-specified benchmark suite that specifies all relevant aspects of problem setup and measurement to facilitate meaningful comparison
-%To provide a complete set of problems and data that exercise all important phenomena of sparse kernels and all realistic applications of sparse kernels.
-%Ease of use and encouraging participation across a wide variety of participants, from tensor compiler writers targeting many kernels to hardware developers of a single kernel
-	
-%Why bother doing this?
-%We are providing specifications for repeatable benchmarking, accuracy under reduced precision or semirings, and accounting for preprocessing time. 
-
-%Some other people have created tensor benchmarks: PASTA, GAP, Sparsebench
-%Why aren’t these sufficient?
-%Well, the people on this project haven’t found them sufficient for the papers they published recently (or did they not even try?)
-%PASTA doesn’t have a big enough variety of tensors
-%All existing benchmarks only provide a single (sparse) matrix or tensor, but most real problems require more than one input.
-%Most sparse benchmarks are focused on providing example data to the detriment of specifying computations and measurements
-%Sparse problems are highly dependent on format/data-structure choices and/or preprocessing.  (maybe talk about measures instead?)
-%Existing benchmarks 
-%Current benchmarks do not collect and archive community progress on key problems.
-%Are the problems in current benchmarks bullshit problems that no-one really cares about?  (Are ours?)
-%The existing datasets are very good for certain sparse applications, but the variety of applications and approaches today are not well represented.
-%List of specific, surprising, deficiencies
-%There is not sufficient focus on exploring theoretical limits???
-%We have an intellectual interest in the best real-world solutions with architectures that exist today.
-%The dense world has a roofline model, it implies a certain workflow for crafting dense kernels and focuses development. The sparse world has no model, we don’t know when to stop optimizing. 
-%What are the key problems that distill the essence of what “sparse linear/tensor algebra” is about?
-
-%This will benefit the community because it will make it easier to measure progress by having common benchmarks for projects and papers.
-
-%Our benchmark will include a few key features to support our goals: 
-%We’re interested in a broad set of benchmarks; our initial kernels include SpMV, SpMM, SpGEMM, SpMTTKRP, Iterative Solvers, Subgraph Counting, and more!
-%We will distribute simple, scalable reference implementations for our broad catalog of kernels. We will also include convenient code to generate inputs and compare against the reference.
-%We will curate the results online and provide performance metrics that can be used to assess fractions of peak, such as best-known modeled data movement, matrix partitions, and more!
 
 %Here is the bibliography:
 \bibliographystyle{plainurl}
