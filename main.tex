@@ -256,11 +256,37 @@ What makes a choice of dataset a good choice?
 	though we will specify the entire tensor $G$, rather than the parameters
 	$A$, $B$, $C$, $D$. Additionally, we will specify $r$, the number of seed
 	matrices which should be joined with a Kronecker product.
+\subsubsection{Markov Clustering}
+Steps of the MCL Algorithm
+\begin{enumerate}
 
+\item The input is an adjacency matrix $A$, representing the graph.
+Initialization
+
+\item Initialize matrix $M$ to $M_0$, the canonical transition matrix $M = (A + I) / D$ where $D$ is the degree matrix.
+
+
+\item Expand: Perform matrix multiplication $M = M * M$.
+
+
+\item Inflate: Apply inflation by raising each element in matrix $M$ to the power of the inflation parameter $r$ (typically 2), then re-normalize the columns.
+Prune
+
+\item Remove the matrix entries close to zero to save memory and speed up convergence.
+Convergence Check
+
+\item Check if the matrix M has converged. If not, return to the "Expand" step. If yes, proceed to output.
+Output clusters
+
+\item Extract the clusters, where each cluster corresponds to a group of nodes more interconnected among themselves than with the rest of the graph.
+     
+\end{enumerate}
+The relationship to the spGEMM operation (sparse General Matrix Multiply) is primarily in the "Expand" step. GEMM is a basic operation in linear algebra that computes the product of two matrices and is central to many algorithms in numerical analysis, including those used in cluster analysis like the MCL. The matrix multiplication in the "Expand" step is essentially a GEMM operation where the current matrix M is multiplied by itself to simulate random walks through the graph, which are key to identifying the clusters. This step can be computationally intensive, and efficient GEMM operations are crucial for the MCL algorithm's performance, especially on large graphs.
+\hrl{This is implemented at https://github.com/SparseRooflineBenchmark/SparseRooflineBenchmark/issues/4#issuecomment-1979101102, there seems to be one graduate student trying to gather some more real-world examples.}
 \section{Kernels}
 
 \subsection{SpMV}
-Sparse Matrix Vector multiplication (SpMV) \hrl{abbr.}
+Sparse Matrix Vector multiplication (SpMV)
 \subsubsection{Input Arguments}
 
 \begin{itemize}
@@ -280,17 +306,10 @@ Sparse Matrix Vector multiplication (SpMV) \hrl{abbr.}
 
 $$y_i = \sum_{j}A_{ij}x_j$$
 
-\subsubsection{Sparse Format Variants}
-
-\glb{This text should be reduced.  It's just here to suggest}
-There should be a list here of options that have already been defined in the format section for $A$ and $x$ (and any other inputs).  In the case of SpMV, this just means specifying format for $A$, because $x$ and $y$ are dense.
-
-\willow{This is the section that would specify whichever formats we think are interesting for SpMV.}
-
 \subsubsection{Benchmark Stages (Provide timings for each stage)}
 
-SpMV is frequently used repeatedly on the same matrix. Therefore, it is the
-subject of many optimizations which are independent of the vector $x$. Thus, 
+SpMV is frequently used repeatedly on the same matrix, making it the
+subject of many optimizations which are independent of the vector $x$.  We also recognize that the performance of sparse matrix-vector multiply is highly dependent on the input matrix format. Thus, 
 we separate the benchmark into two stages:
 
 \begin{itemize}
@@ -300,21 +319,143 @@ we separate the benchmark into two stages:
 	The kernel may read $x$.
 \end{itemize}
 
+This separation into stages allows us to account for the cost of reformatting in Stage 1 separately from the cost of the multiple in Stage 2.
+
 \subsubsection{Datasets}
 
 \begin{itemize}
 	\item[\texttt{spmv/kronecker10}:] 100 random kronecker networks at 10 percent sparsity, using the
-	same parameters as GAP and Graph500 \cite{noauthor_graph_nodate}.
+	same parameters as GAP and Graph500\cite{noauthor_graph_nodate}.
 	\begin{itemize}
-		\item[\texttt{spmv/kronecker10/A}:] $\texttt{RMAT}\left(r=27, G = \left[\begin{array}{cc}
+		\item[\texttt{spmv/kronecker10/A}:] $ \texttt{RMAT}\left(r=27, G = \left[\begin{array}{cc}
 			0.57 & 0.19 \\
 			0.19 & 0.05 \\
-		\end{array}\right]\right)$
+		\end{array}\right]\right)$, in CSR format.
 		\item[\texttt{spmv/kronecker10/x}:] $\texttt{rand}\left(m = 2^{27}\right)$
 	\end{itemize}
 	\item[\texttt{spmv/OSKI}:] the sparse matrices used in evaluation of
-	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}.
+	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. in CSR format.
 \end{itemize}
+
+\subsection{SpMM}
+Sparse Matrix Matrix multiplication (SpMM)
+\subsubsection{Input Arguments}
+
+\begin{itemize}
+	\item[$m$:] a positive integer.
+	\item[$n$:] a positive integer.
+	\item[$d$:] a positive integer.
+	\item[$A$:] an $m \times n$ sparse matrix.
+	\item[$X$:] an $n \times d$ dense matrix.
+\end{itemize}
+
+\subsubsection{Output Arguments}
+
+\begin{itemize}
+	\item[$Y$:] an $m \times d$ dense matrix.
+\end{itemize}
+
+\subsubsection{Computation}
+
+$$Y_{ik} = \sum_{j}A_{ij}X_{jk}$$
+
+\subsubsection{Benchmark Stages (Provide timings for each stage)}
+
+For similar reasons to SpMV, we separate the benchmark into two stages:
+
+\begin{itemize}
+\item \textbf{(Stage 1)}
+	The kernel may read $m$, $n$, $d$ and $A$.
+\item \textbf{(Stage 2)}:
+	The kernel may read $X$.
+\end{itemize}
+
+\subsubsection{Datasets}
+
+    Spmm datasets have the following file format:
+    \texttt{spmm/\$dataset/\$width/\$argument}
+
+    The number of columns dense matrix are referenced with the \texttt{width} key and chosen from the following table.
+    
+    \begin{tabular}{|c|c|}\hline
+        \texttt{width} & value\\
+        \hline
+        skinny & $d = 8$\\
+        medium & $d = 32$\\
+        wide & $d = 128$\\\hline
+    \end{tabular}
+
+cite[https://iacoma.cs.uiuc.edu/iacoma-papers/ics22_2.pdf]
+
+\textbf{dataset} keys
+\begin{itemize}
+	\item[\texttt{kronecker10}:] 100 random kronecker networks at 10 percent sparsity, using the
+	same parameters as GAP and Graph500\cite{noauthor_graph_nodate}.
+	\begin{itemize}
+		\item[\texttt{A}] $\texttt{RMAT}\left(r=27, G = \left[\begin{array}{cc}
+			0.57 & 0.19 \\
+			0.19 & 0.05 \\
+		\end{array}\right]\right)$, in CSR format.
+
+        \item[\texttt{x}] is a matrix of random Gaussians.
+	\end{itemize}
+	\item[\texttt{OSKI}:] the sparse matrices used in evaluation of
+	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. in CSR format.
+\end{itemize}
+
+
+
+\subsection{SpGEMM}
+Sparse Matrix, Sparse Matrix multiplication (SpGEMM)
+\subsubsection{Input Arguments}
+
+\begin{itemize}
+	\item[$m$:] a positive integer.
+	\item[$n$:] a positive integer.
+	\item[$p$:] a positive integer.
+	\item[$A$:] an $m \times p$ sparse matrix.
+	\item[$B$:] an $p \times n$ sparse matrix.
+\end{itemize}
+
+\subsubsection{Output Arguments}
+
+\begin{itemize}
+	\item[$C$:] an $m \times n$ dense matrix.
+\end{itemize}
+
+\subsubsection{Computation}
+
+$$C_{ij} = \sum_{k}A_{ik}B_{kj}$$
+
+\subsubsection{Benchmark Stages (Provide timings for each stage)}
+
+For similar reasons to other benchmarks, we separate into two stages:
+
+\begin{itemize}
+\item \textbf{(Stage 1)}
+	The kernel may read $m$, $n$, $d$ and $A$.
+\item \textbf{(Stage 2)}:
+	The kernel may read $B$.
+\end{itemize}
+
+\subsubsection{Datasets}
+
+\begin{itemize}
+	\item[\texttt{erdosverysparse}:] 100 random erdos renyi networks at 0.0001 percent sparsity.
+	\begin{itemize}
+		\item[\texttt{A}] $erdos(m, n, 0.0001)$, in CSR format.
+
+        \item[\texttt{B}] $erdos(m, n, 0.0001)$, in CSR format.
+	\end{itemize}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%  BEWARE Dead Code Ahead!     %%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Morgue: Future Writing}
 
 \subsubsection{Variants to Measure}
 \hrl{We perhaps want to select some problems with ground truth so that we can have the actual error.}
@@ -323,7 +464,7 @@ Here are the combinations of settings that should actually be measured.
 
 Everything after this line is a draft:
 
-\noindent\rule{\textwidth}{1pt}
+
 
 \subsubsection{Variations}
     Also include SpMV transpose.
@@ -455,7 +596,6 @@ $NewX[u, k] = softmax_k(WX’[u,k](X[u, k] +AggNeighborMessages[u,k]) + BX’[k]
 	Computation: Compute the number of subgraphs of a particular kind (triangle, flower, petal, etc.)
 	Distribution: Random graph models, directed vs undirected subvariants
 
-\section{Future Benchmark Verticals}
 
 \subsection{Quantum Chemistry Stuff}
 Oh cool, quantum chemistry stuff!
