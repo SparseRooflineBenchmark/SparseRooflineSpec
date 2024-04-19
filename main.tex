@@ -295,6 +295,8 @@ What makes a choice of dataset a good choice?
 
 	Note that we will use the notation $A \sim D$ to denote tensor $A$ being generated from distribution $D$. For example, $A \sim Uniform_{Erdos-Renyi}((m \times n), nnz)$ means that $A$ is generated from an Erdos-Renyi generator.
 
+	Often, instead of specifying the number of nonzeros, we may equivalently specify the density $\rho$.
+
 \subsubsection{Erdos-Renyi}
 	The Erdos-Renyi matrix generator selects a random tensor of size $m \times n$ with a given number of nonzeros $nnz$. The tensor is chosen uniformly at random from the set of tensors with $nnz$ nonzeros. All tensors have density $m * n / nnz$. We denote the distribution of this generator as:
 
@@ -303,22 +305,11 @@ What makes a choice of dataset a good choice?
 	\]
 
 	This is straightforwardly generalized to vectors or tensors by removing or inserting dimensions.
-
-\subsubsection{Erdos-Renyi-Gilbert}
-	The Erdos-Renyi-Gilbert matrix generator selects a random tensor of size $m \times n$ where each nonzero is independently nonzero with a given probability $p$. We denote the nonzero distribution as:
-
-
-	\[
-		ErdosRenyiGilbert((m \times n), p)
-	\]
-
-	Note that this is a special case of the Erdos-Renyi distribution, where the number of nonzeros is a random variable with a binomial distribution.
-
+	
+	Note that The Erdos-Renyi-Gilbert matrix generator selects a random tensor of size $m \times n$ where each nonzero is independently nonzero with a given probability $p$. This is a special case of the Erdos-Renyi distribution, where the number of nonzeros is a random variable with a binomial distribution.
 	\[
 		ErdosRenyiGilbert((m \times n), p) = ErdosRenyi((m \times n), \text{Binomial}(mn, p))
 	\]
-
-	This is straightforwardly generalized to vectors or tensors by removing or inserting dimensions.
 
 \subsubsection{RMAT}
     The RMAT matrix generator \cite{chakrabarti_r-mat_2004} creates graphs with
@@ -348,6 +339,14 @@ What makes a choice of dataset a good choice?
 
 	\[
 		RMAT(S, r, nnz)
+	\]
+
+	We use GAP as a shorthand for the same parameters as the GAP benchmark \cite{beamer_gap_2017}.
+	\[
+	GAP = \left[\begin{array}{cc}
+		0.57 & 0.19 \\
+		0.19 & 0.05 \\
+	\end{array}\right]
 	\]
 \subsubsection{Markov Clustering}
 Steps of the MCL Algorithm
@@ -412,22 +411,23 @@ we separate the benchmark into two stages:
 	The kernel may read $x$.
 \end{itemize}
 
-This separation into stages allows us to account for the cost of reformatting in Stage 1 separately from the cost of the multiple in Stage 2.
+This separation into stages allows us to account for the cost of e.g. reformatting in Stage 1 separately from the cost of the multiply in Stage 2.
 
 \subsubsection{Datasets}
 
 \begin{itemize}
-	\item[\texttt{spmv/kronecker10}:] 100 random kronecker networks at 10 percent sparsity, using the
-	same parameters as GAP and Graph500\cite{noauthor_graph_nodate}.
-	\begin{itemize}
-		\item[\texttt{spmv/kronecker10/A}:] $ \texttt{RMAT}\left(r=27, G = \left[\begin{array}{cc}
-			0.57 & 0.19 \\
-			0.19 & 0.05 \\
-		\end{array}\right]\right)$, in CSR format.
-		\item[\texttt{spmv/kronecker10/x}:] $\texttt{rand}\left(m = 2^{27}\right)$
-	\end{itemize}
-	\item[\texttt{spmv/OSKI}:] the sparse matrices used in evaluation of
-	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. in CSR format.
+	\item \texttt{spmv/erdos}: Random networks with sizes chosen logarithmically in the range 10,000 to 1,000,000 and 1,000,000 nonzeros. CSR format.
+	\begin{multline*}
+		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
+			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right), \quad x \sim rand(m)
+	\end{multline*}
+	\item \texttt{spmv/GAP10}: Random GAP kronecker networks at 10 percent
+	density. CSR format.
+	\[
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right), \quad x \sim rand(2^{27})
+	\]
+	\item \texttt{spmv/OSKI}: The sparse matrices used in evaluation of
+	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. CSR format.
 \end{itemize}
 
 \subsection{SpMM}
@@ -438,8 +438,8 @@ Sparse Matrix Matrix multiplication (SpMM)
 	\item[$m$:] a positive integer.
 	\item[$n$:] a positive integer.
 	\item[$d$:] a positive integer.
-	\item[$A$:] an $m \times n$ sparse matrix.
-	\item[$X$:] an $n \times d$ dense matrix.
+	\item[$A$:] an $m \times k$ sparse matrix.
+	\item[$X$:] an $k \times d$ dense matrix.
 \end{itemize}
 
 \subsubsection{Output Arguments}
@@ -458,18 +458,16 @@ For similar reasons to SpMV, we separate the benchmark into two stages:
 
 \begin{itemize}
 \item \textbf{(Stage 1)}
-	The kernel may read $m$, $n$, $d$ and $A$.
+	The kernel may read $m$, $n$, $p$ and $A$.
 \item \textbf{(Stage 2)}:
 	The kernel may read $X$.
 \end{itemize}
 
 \subsubsection{Datasets}
 
-    Spmm datasets have the following file format:
-    \texttt{spmm/\$dataset/\$width/\$argument}
+	Since SpMM datasets have a dense dimension which can often be set independently
+	of other dimensions in the matrix, we provide the following named aliases for the number of columns in the dense matrix \cite{yesil_dense_2022}.
 
-    The number of columns dense matrix are referenced with the \texttt{width} key and chosen from the following table.
-    
     \begin{tabular}{|c|c|}\hline
         \texttt{width} & value\\
         \hline
@@ -478,22 +476,19 @@ For similar reasons to SpMV, we separate the benchmark into two stages:
         wide & $d = 128$\\\hline
     \end{tabular}
 
-\cite{yesil_dense_2022}
-
-\textbf{dataset} keys
 \begin{itemize}
-	\item[\texttt{kronecker10}:] 100 random kronecker networks at 10 percent sparsity, using the
-	same parameters as GAP and Graph500\cite{noauthor_graph_nodate}.
-	\begin{itemize}
-		\item[\texttt{A}] $\texttt{RMAT}\left(r=27, G = \left[\begin{array}{cc}
-			0.57 & 0.19 \\
-			0.19 & 0.05 \\
-		\end{array}\right]\right)$, in CSR format.
-
-        \item[\texttt{x}] is a matrix of random Gaussians.
-	\end{itemize}
-	\item[\texttt{OSKI}:] the sparse matrices used in evaluation of
-	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. in CSR format.
+	\item \texttt{spmm/erdos/\$width}: Random networks with sizes chosen logarithmically in the range 10,000 to 1,000,000 and 1,000,000 nonzeros. CSR format.
+	\begin{multline*}
+		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
+			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right), \quad X \sim rand(m, d)
+	\end{multline*}
+	\item \texttt{spmm/GAP10/\$width}: Random GAP kronecker networks at 10 percent
+	density. CSR format.
+	\[
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right), \quad X \sim rand(2^{27}, d)
+	\]
+	\item \texttt{spmm/OSKI/\$width}: The sparse matrices used in evaluation of
+	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. CSR format.
 \end{itemize}
 
 
@@ -522,24 +517,29 @@ $$C_{ij} = \sum_{k}A_{ik}B_{kj}$$
 
 \subsubsection{Benchmark Stages (Provide timings for each stage)}
 
-For similar reasons to other benchmarks, we separate into two stages:
+This benchmark is not separated into stages, most applications of SpGemm do not
+reuse either matrix.
 
 \begin{itemize}
-\item \textbf{(Stage 1)}
-	The kernel may read $m$, $n$, $d$ and $A$.
-\item \textbf{(Stage 2)}:
-	The kernel may read $B$.
+\item \textbf{Compute Stage}
+	The kernel may read $m$, $n$, $p$, $A$, and $B$.
 \end{itemize}
 
 \subsubsection{Datasets}
 
 \begin{itemize}
-	\item[\texttt{erdosverysparse}:] 100 random erdos renyi networks at 0.0001 percent sparsity.
-	\begin{itemize}
-		\item[\texttt{A}] $erdos(m, n, 0.0001)$, in CSR format.
-
-        \item[\texttt{B}] $erdos(m, n, 0.0001)$, in CSR format.
-	\end{itemize}
+	\item \texttt{spgemm/erdos}: Two Random networks with sizes chosen logarithmically in the range 10,000 to 1,000,000 and 1,000,000 nonzeros. CSR format.
+	\begin{multline*}
+		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
+			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
+			B \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
+	\end{multline*}
+	\item \texttt{spgemm/GraphSquaring}: Square Random GAP kronecker networks at 10 percent density. CSR format.
+	\[
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right), \quad B = A
+	\]
+	\item \texttt{spgemm/GAMMA}: The sparse matrices used in evaluation of
+	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}. When the matrix is square, $B = A$. When the matrix is rectangular, $B = A^T$. CSR format.
 \end{itemize}
 
 %Here is the bibliography:
