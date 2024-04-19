@@ -293,6 +293,33 @@ What makes a choice of dataset a good choice?
     parameters. All tensor generators that use random numbers additionally take a
 	seed argument $s$. 
 
+	Note that we will use the notation $A \sim D$ to denote tensor $A$ being generated from distribution $D$. For example, $A \sim Uniform_{Erdos-Renyi}((m \times n), nnz)$ means that $A$ is generated from an Erdos-Renyi generator.
+
+\subsubsection{Erdos-Renyi}
+	The Erdos-Renyi matrix generator selects a random tensor of size $m \times n$ with a given number of nonzeros $nnz$. The tensor is chosen uniformly at random from the set of tensors with $nnz$ nonzeros. All tensors have density $m * n / nnz$. We denote the distribution of this generator as:
+
+	\[
+		ErdosRenyi((m \times n), nnz)
+	\]
+
+	This is straightforwardly generalized to vectors or tensors by removing or inserting dimensions.
+
+\subsubsection{Erdos-Renyi-Gilbert}
+	The Erdos-Renyi-Gilbert matrix generator selects a random tensor of size $m \times n$ where each nonzero is independently nonzero with a given probability $p$. We denote the nonzero distribution as:
+
+
+	\[
+		ErdosRenyiGilbert((m \times n), p)
+	\]
+
+	Note that this is a special case of the Erdos-Renyi distribution, where the number of nonzeros is a random variable with a binomial distribution.
+
+	\[
+		ErdosRenyiGilbert((m \times n), p) = ErdosRenyi((m \times n), \text{Binomial}(mn, p))
+	\]
+
+	This is straightforwardly generalized to vectors or tensors by removing or inserting dimensions.
+
 \subsubsection{RMAT}
     The RMAT matrix generator \cite{chakrabarti_r-mat_2004} creates graphs with
     power-law degree distributions, which presents an interesting challenge to
@@ -314,9 +341,14 @@ What makes a choice of dataset a good choice?
 			C & D \\
 		\end{array}\right],
 	\]
-	though we will specify the entire tensor $G$, rather than the parameters
-	$A$, $B$, $C$, $D$. Additionally, we will specify $r$, the number of seed
-	matrices which should be joined with a Kronecker product.
+	though we will specify the entire tensor $S$, rather than the parameters
+	$A$, $B$, $C$, $D$. Additionally, we will specify $r$, the number of times we join the seed matrix with itself in a Kronecker product. If the seed matrix is $m \times n$, the generated matrix is $m^r \times n^r$.
+
+	We refer to the RMAT matrix generator with a seed $S$, factor $r$, and exactly $nnz$ nonzeros as:
+
+	\[
+		RMAT(S, r, nnz)
+	\]
 \subsubsection{Markov Clustering}
 Steps of the MCL Algorithm
 \begin{enumerate}
