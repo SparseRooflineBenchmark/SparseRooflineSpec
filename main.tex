@@ -378,7 +378,7 @@ The relationship to the spGEMM operation (sparse General Matrix Multiply) is pri
 \section{Kernels}
 
 \subsection{SpMV}
-Sparse Matrix Vector multiplication (SpMV)
+Sparse Matrix - Dense Vector multiplication (SpMV)
 \subsubsection{Input Arguments}
 
 \begin{itemize}
@@ -421,13 +421,76 @@ This separation into stages allows us to account for the cost of e.g. reformatti
 		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
 			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right), \quad x \sim rand(m)
 	\end{multline*}
-	\item \texttt{spmv/GAP10}: Random GAP kronecker networks at 10 percent
+	\item \texttt{spmv/GAP10}: Random GAP kronecker networks at 1 percent
 	density. CSR format.
 	\[
-		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right), \quad x \sim rand(2^{27})
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.01\right), \quad x \sim rand(2^{27})
 	\]
 	\item \texttt{spmv/OSKI}: The sparse matrices used in evaluation of
 	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. CSR format.
+\end{itemize}
+
+\subsection{SpMSpV}
+Sparse Matrix - Sparse Vector multiplication (SpMV)
+\subsubsection{Input Arguments}
+
+\begin{itemize}
+	\item[$m$:] a positive integer.
+	\item[$n$:] a positive integer.
+	\item[$A$:] an $m \times n$ sparse matrix.
+	\item[$x$:] a length-$n$ sparse vector.
+\end{itemize}
+
+\subsubsection{Output Arguments}
+
+\begin{itemize}
+	\item[$y$:] an $m$-length dense vector.
+\end{itemize}
+
+\subsubsection{Computation}
+
+$$y_i = \sum_{j}A_{ij}x_j$$
+
+\subsubsection{Benchmark Stages (Provide timings for each stage)}
+
+SpMSpV is also used repeatedly on the same matrix, so we separate into the same stages as SpMV:
+
+\begin{itemize}
+\item \textbf{(Stage 1)}
+	The kernel may read $m$, $n$, and $A$.
+\item \textbf{(Stage 2)}:
+	The kernel may read $x$.
+\end{itemize}
+
+This separation into stages allows us to account for the cost of e.g. reformatting in Stage 1 separately from the cost of the multiply in Stage 2.
+
+\subsubsection{Datasets}
+
+Benchmarks for SpMSpV often vary the sparsity of the vector $x$ with the same data. We define the following settings for x, based on the observations in \cite{azad_work-efficient_2017}.
+\begin{tabular}{|c|c|}\hline
+	\texttt{x-density} & value\\
+	\hline
+	hypersparse & $nnz = 10$\\
+	sparse & $\rho = 0.002$\\
+	lesssparse & $\rho = 0.05$\\\hline
+\end{tabular}
+
+\begin{itemize}
+	\item \texttt{spmspv/erdossparse/\$x-density}: Random networks with sizes chosen logarithmically in the range 10,000 to 100,000 and 1\% density. Vectors are also chosen uniformly randomly. CSR format.
+	\begin{multline*}
+		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
+			A \sim ErdosRenyi\left(m\times n, \rho=0.01\right), \quad x \sim  ErdosRenyi\left(n, \texttt{\$x-density}\right)
+	\end{multline*}
+	\item \texttt{spmv/GAP10/\$x-density}: Random GAP kronecker networks at 1 percent
+	density. Vectors are also chosen uniformly randomly. CSR format.
+	\[
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.01\right), \quad x \sim  ErdosRenyi\left(n, \texttt{\$x-density}\right)
+	\]
+	\item \texttt{spmv/azad/\$x-density}: The sparse matrices used in evaluation of
+	``A Work-Efficient Parallel Sparse Matrix-Sparse Vector Multiplication Algorithm'' \cite{azad_work-efficient_2017}. Vectors are also chosen uniformly randomly. CSR format.
+	\[
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.01\right), \quad x \sim  ErdosRenyi\left(n, \texttt{\$x-density}\right)
+	\]
 \end{itemize}
 
 \subsection{SpMM}
@@ -534,12 +597,67 @@ reuse either matrix.
 			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
 			B \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
 	\end{multline*}
-	\item \texttt{spgemm/GraphSquaring}: Square Random GAP kronecker networks at 10 percent density. CSR format.
+	\item \texttt{spgemm/AA/GraphSquaring}: Square Random GAP kronecker networks at 10 percent density. CSR format.
 	\[
 		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right), \quad B = A
 	\]
-	\item \texttt{spgemm/GAMMA}: The sparse matrices used in evaluation of
-	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}. When the matrix is square, $B = A$. When the matrix is rectangular, $B = A^T$. CSR format.
+	\item \texttt{spgemm/AA/GAMMA}: The square sparse matrices used in evaluation of
+	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}. In this case, $B = A$. 
+	\item \texttt{spgemm/ATA/GAMMA}: All sparse matrices used in evaluation of
+	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}. In this case, $B = A^T$. CSR format.
+\end{itemize}
+
+\subsection{MTTKRP}
+Matricized Khatri-Rao Product (MTTKRP)
+\subsubsection{Input Arguments}
+
+\begin{itemize}
+	\item[$m, n, p, ...$:] positive integers.
+	\item[$R$:] a positive integer, the rank.
+	\item[$X$:] an $m \times n \times k ...$ sparse tensor, with a dataset-dependent number of dimensions.
+	\item[$B, C, ...$:] a collection of $n \times R$ dense matrices, numbering one less than the number of dimensions in $X$.
+\end{itemize}
+
+\subsubsection{Output Arguments}
+
+\begin{itemize}
+	\item[$A$:] an $m \times R$ dense matrix.
+\end{itemize}
+
+\subsubsection{Computation}
+
+$$A_{il} = \sum_{jk...}X_{ijk}(B_{jl}C_{kl}...)$$
+
+\subsubsection{Benchmark Stages (Provide timings for each stage)}
+
+MTTKRP is frequently used repeatedly on the same tensor during canonical polyadic decomposition. In the factorization algorithm, the dense matrices $A$, $B$ and $C$ swap roles, and are each updated in turn and can be thought of as different every time. Thus, we provide the dense matrices in a second stage.
+
+\begin{itemize}
+\item \textbf{(Stage 1)}
+	The kernel may read $R$, $X$ and $m, n, p, ...$
+\item \textbf{(Stage 2)}:
+	The kernel may read $B, C, ...$.
+\end{itemize}
+
+\subsubsection{Datasets}
+
+	Since MTTKRP datasets have a dense dimension (the tensor rank $R$) which can be set independently
+	of other dimensions in the matrix, we provide the following named aliases for the number of columns in the dense matrices \cite{kolda_tensor_2009,li_sparse_2020}.
+
+    \begin{tabular}{|c|c|}\hline
+        \texttt{rank} & value\\
+        \hline
+        skinny & $d = 16$\\
+        wide & $d = 64$\\\hline
+    \end{tabular}
+
+\begin{itemize}
+	\item \texttt{mttkrp/erdos3/\$rank}: Random 3-tensors with sizes chosen logarithmically in the range 1,000 to 100,000 and 1,000,000 nonzeros. CSF format.
+	\begin{multline*}
+		m \sim 10^{Uniform(3:5)}, \quad n \sim 10^{Uniform(3:5)}, \quad k \sim 10^{Uniform(3:5)}\\
+			A \sim ErdosRenyi\left(m\times n \times k, nnz=10^6\right), \quad B \sim rand(n, d),  \quad C \sim rand(k, d)
+	\end{multline*}
+	\item \texttt{mttkrp/PASTA/\$rank}: The sparse tensors proposed in the PASTA benchmark suite \cite{li_pasta_2019}. CSF format.
 \end{itemize}
 
 %Here is the bibliography:
