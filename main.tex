@@ -542,8 +542,8 @@ For similar reasons to SpMV, we separate the benchmark into two stages:
 \begin{itemize}
 	\item \texttt{spmm/erdos/\$width}: Random networks with sizes chosen logarithmically in the range 10,000 to 1,000,000 and 1,000,000 nonzeros. CSR format.
 	\begin{multline*}
-		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
-			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right), \quad X \sim rand(m, d)
+		m \sim 10^{Uniform(4:6)}, \quad n \sim 10^{Uniform(4:6)} \\
+			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right), \quad X \sim rand(n, d)
 	\end{multline*}
 	\item \texttt{spmm/GAP10/\$width}: Random GAP kronecker networks at 10 percent
 	density. CSR format.
