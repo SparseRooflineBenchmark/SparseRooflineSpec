@@ -554,7 +554,94 @@ For similar reasons to SpMV, we separate the benchmark into two stages:
 	``Performance Optimizations and Bounds for Sparse Matrix-Vector Multiply'' \cite{vuduc_performance_2002}. CSR format.
 \end{itemize}
 
+\subsection{SpGEMM\_ATA}
+Sparse Matrix times transpose multiplication (SpGEMM\_ATA)
+\subsubsection{Input Arguments}
 
+\begin{itemize}
+	\item[$m$:] a positive integer.
+	\item[$n$:] a positive integer.
+	\item[$A$:] an $m \times n$ sparse matrix.
+\end{itemize}
+
+\subsubsection{Output Arguments}
+
+\begin{itemize}
+	\item[$B$:] an $n \times n$ dense matrix.
+\end{itemize}
+
+\subsubsection{Computation}
+
+$$C_{ij} = \sum_{k}A_{ki}A_{jk}$$
+
+\subsubsection{Benchmark Stages (Provide timings for each stage)}
+
+This benchmark is not separated into stages, there is only one input.
+
+\begin{itemize}
+\item \textbf{Compute Stage}
+	The kernel may read $m$, $n$, $A$
+\end{itemize}
+
+\subsubsection{Datasets}
+
+\begin{itemize}
+	\item \texttt{spgemm\_ATA/erdos}: A Random network with size chosen logarithmically in the range 10,000 to 1,000,000 and 1,000,000 nonzeros. CSR format.
+	\begin{multline*}
+		m \sim 10^{Uniform(3:6)}, \quad n \sim 10^{Uniform(3:6)} \\
+			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
+	\end{multline*}
+	\item \texttt{spgemm\_ATA/GAMMA}: All sparse matrices used in evaluation of
+	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix
+	multiplication'' \cite{zhang_gamma_2021}. CSR format. The GAMMA literature
+	specified these matrices to be used in AAT, so we transpose all of them
+	first.
+\end{itemize}
+
+
+\subsection{SpGEMM\_AA}
+Sparse Matrix times itself multiplication (SpGEMM\_AA)
+\subsubsection{Input Arguments}
+
+\begin{itemize}
+	\item[$n$:] a positive integer.
+	\item[$A$:] an $n \times n$ sparse matrix.
+\end{itemize}
+
+\subsubsection{Output Arguments}
+
+\begin{itemize}
+	\item[$B$:] an $n \times n$ dense matrix.
+\end{itemize}
+
+\subsubsection{Computation}
+
+$$C_{ij} = \sum_{k}A_{ik}A_{kj}$$
+
+\subsubsection{Benchmark Stages (Provide timings for each stage)}
+
+This benchmark is not separated into stages, there is only one input.
+
+\begin{itemize}
+\item \textbf{Compute Stage}
+	The kernel may read $n$, $A$
+\end{itemize}
+
+\subsubsection{Datasets}
+
+\begin{itemize}
+	\item \texttt{spgemm\_AA/erdos}: A Random network with size chosen logarithmically in the range 10,000 to 1,000,000 and 1,000,000 nonzeros. CSR format.
+	\begin{multline*}
+		\quad n \sim 10^{Uniform(3:6)} \\
+			A \sim ErdosRenyi\left(n\times n, nnz=10^6\right)
+	\end{multline*}
+	\item \texttt{spgemm\_AA/GraphSquaring}: Square Random GAP kronecker networks at 10 percent density. CSR format.
+	\[
+		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right)
+	\]
+	\item \texttt{spgemm\_AA/GAMMA}: The square sparse matrices used in evaluation of
+	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}.
+\end{itemize}
 
 \subsection{SpGEMM}
 Sparse Matrix, Sparse Matrix multiplication (SpGEMM)
@@ -597,14 +684,6 @@ reuse either matrix.
 			A \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
 			B \sim ErdosRenyi\left(m\times n, nnz=10^6\right)
 	\end{multline*}
-	\item \texttt{spgemm/AA/GraphSquaring}: Square Random GAP kronecker networks at 10 percent density. CSR format.
-	\[
-		A \sim RMAT\left(r=27, S = GAP, \rho = 0.1\right), \quad B = A
-	\]
-	\item \texttt{spgemm/AA/GAMMA}: The square sparse matrices used in evaluation of
-	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}. In this case, $B = A$. 
-	\item \texttt{spgemm/ATA/GAMMA}: All sparse matrices used in evaluation of
-	``Gamma: leveraging Gustavson’s algorithm to accelerate sparse matrix multiplication'' \cite{zhang_gamma_2021}. In this case, $B = A^T$. CSR format.
 \end{itemize}
 
 \subsection{MTTKRP}
